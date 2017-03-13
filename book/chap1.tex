@@ -1,0 +1,54 @@
+
+\chapter{序言}
+\thispagestyle{empty}
+
+\setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
+\noindent\shadowbox{
+\begin{tcolorbox}[arc=0mm,colback=lightblue,colframe=darkblue,title=学习目标与要求]
+%kai\textcolor{darkblue}{1.~~对抗学习．} \\ 
+
+\end{tcolorbox}}
+\setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt}
+
+淘宝搜索作为平台的一个重要联系买家和卖家的产品形态， 
+由于其以下的特有属性，使其成为大数据智能化应用的最佳场景；
+1. 海量消费者与平台的互动行为
+2. 海量商家在平台进行的商业活动行为
+3. 海量的商品
+算法及模型在搜索和推荐系统领域占据统治地位之前，具有领域知识的专业运营和
+产品往往充当信息展示规则的缔造者，根据主观的判断和对市场的敏锐度来制定
+查询词背后的商品展示逻辑。“人工规则”的好处是容易理解和操控，坏处则不言而喻，
+随着平台规模的增大，简单规则无法精细的表达人货匹配的效率，并且容易被一些
+不良商家利用规则来扰乱市场秩序；实际上，早期的搜索和推荐系统也会运用一些
+基本的算法逻辑来保证信息匹配的正确性和人货匹配的公平性，基于传统搜索
+引擎技术的相关性模型，保证用户查询词语商品标题的有效匹配；基于商品成交
+与否的销售人气指数模型，保证有助于被消费者接受的商品得到更多的展示机会；
+另外还有一个就是系统为了保证让更多商家有机会得到展现，设置的按照虚拟下架
+周期为参考的轮播因子，即将下架的商品会得到相对较高的展示机会。
+$$
+	score(item)=1-\frac{ItemOffshelfTime-QueryTime}{secondsOfTwoweek}\times(\frac{docFound}{delta})
+$$
+第一代搜索算法技术的一些弊端让它们已经不能适应现代
+
+
+作为一个公平的市场调节员，调整供需平衡，为卖家引导潜在的消费群体，以提升其ROI（return on investment），为用户提供满足其需求（user intent）的商品；商业流量下的搜索自然带有其特有的技术特点：
+
+淘宝搜索算法技术演进之路可以分为四个阶段，如图所示： 
+
+
+\begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{\protect\numberline{}{\hspace{-1.5em}参考文献}}
+\markboth{参考文献}{参考文献}
+\bibitem{1} Bilinear+LinUcb的个性化主题推荐, http://www.atatech.org/articles/67847
+\bibitem{2} 流量个性化v.s商业化 - 双11珠峰项目中控算法, http://www.atatech.org/articles/67242
+\bibitem{3} 依托搜索技术的个性化平台之路, http://www.atatech.org/articles/13748
+\bibitem{4} 用户意图预估之实时意图篇, http://www.atatech.org/article/detail/12636/152
+\bibitem{5} 知人知面需知心——论人工智能技术在推荐系统中的应用，http://geek.csdn.net/news/detail/112318
+
+
+\bibitem{3} Liya Tolstikhin,  AdaGAN: boosting generative models
+
+
+\end{thebibliography}
+
+ 

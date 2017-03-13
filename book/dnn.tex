@@ -1,0 +1,161 @@
+\documentclass[9pt]{article}
+%\usepackage{amssymb,amsmath,epsfig,graphicx,CJK,setspace,multirow}
+\usepackage{amssymb,amsmath,epsfig,graphicx,color}
+\setcounter{page}{1}
+\sloppy     % better line breaks
+
+\title{DNN Back Propagation}
+
+\begin{document}
+\large{DNN Back Propagation}
+
+\begin{itemize}
+\item First of all, let's define a few functions and compute their derivatives.
+\begin{itemize}
+\item Sigmoid function: $\sigma(x)=\frac{1}{1+e^{-x}} \in (0,1)$.
+\[\sigma' = \sigma (1 - \sigma) \]
+
+
+\end{itemize}
+\item Output layer (layer N)
+
+Assume output unit $q$, hidden layer unit $m$.
+\begin{itemize}
+\item $I_q$: summed input for unit $q$. 
+\item $O_q$: softmax output of layer N, unit $q$
+\item $W^N$: weight matrix from layer N-1 to layer N.
+\item $B^N$: bias for layer N.
+\end{itemize}
+For simplicity, the layer superscript is dropped whenever there is no ambiguity.
+As you will see, we will use a different index letter for the nodes at
+each different layer. So it's no ambiguous at all to tell which layer a node
+is located. Hence superscript is often not necessary. $soft(.)$ is the softmax function.
+
+\begin{center}
+\begin{tabular}{|l|l|} \hline
+layer & node \\ \hline \hline
+$N$ & $q$ \\ \hline
+$N-1$ & $m$ \\ \hline
+$N-2$ & $i$ \\ \hline
+$N-3$ & $j$ \\ \hline
+\end{tabular}
+\end{center}
+
+At each time frame $t$ is ($t$ is omitted for simplicity whenever possible):
+\begin{eqnarray*}
+I_q&  = &(\sum_m w_{mq} O_m) + b_q \\
+O_q & = & soft(I_q) = \frac{e^{I_q}}{\sum_k e^{I_k}} \\
+\end{eqnarray*}
+
+Notice $O_m$ denotes the output of unit $m$, as we do for the output
+of unit $q$. However, keep in mind that $q$ is a node at layer $N$, while
+$m$ is a node at layer $N-1$. 
+
+In back propagation algorithm for conventional DNN, the weight 
+matrix is updated via stochastic gradient descent:
+\begin{eqnarray*}
+\hat{w}_{mq} & = & w_{mq} - \alpha \frac{\partial F}{\partial w_{mq}} \\
+\hat{b}_{q} & = & b_q - \alpha \frac{\partial F}{\partial b_q}
+\end{eqnarray*}
+where $F$ is the objective function. 
+With SGD, we compute the error signal and update the parameters per frame of
+input. Therefore the objective function does not need to be summed across
+all training data, but just one frame of data. Thus
+minimizing the cross-entropy (CE) objective function for each time frame follows:
+\begin{eqnarray*}
+R =  \mbox{reference labels} & = & \left[0 0 ... 1 0 ... 0 \right] \\
+O = \mbox{output labels} & = & \left[ O_1 O_2 ... O_{q^*} ... O_N \right] \\
+\mbox{min}\;F(O) = H(R,O) & \triangleq & -\sum_i R_i \log {O_i} \\
+& = & 0 + 0 + ... - \log O_{q^*} + 0 + 0 \\
+& = & - \log O_{q^*} 
+\end{eqnarray*}
+where $q^*$ is the reference senone label at time $t$.
+
+\begin{eqnarray*}
+\frac{\partial F}{\partial w_{mq}} & = & \frac{\partial F}{\partial O_{q^*}} 
+\frac{\partial O_{q^*}}{\partial I_q} \frac{\partial I_q}{\partial w_{mq}} \\
+ & = & - \frac{1}{O_{q^*}} {\color{red} \frac{\partial O_{q^*}}{\partial I_q}} O_m \\
+%& = & - \frac{1}{O_{q^*}} O_{q^*} (\delta_{qq^*} - O_q) O_m = -(\delta_{qq^*} - O_q) O_m \\
+\end{eqnarray*}
+
+For node $q^*$, its output is a softmax function. To compute the partial
+derivative of $O_{q^*}$  w.r.t. $I_q$, let's do some homework first.
+For simplicity, only in this paragraph, let's use q to also denote the input 
+to node $q$ (i.e., $q=I_q$).
+
+%\frac{\partial O_{q^*}}{\partial I_q}
+\begin{eqnarray*}
+s(q^*) = O_{q^*} & = & \frac{e^{q^*}}{\sum_q e^q} \\
+\frac{\partial O_{q^*}}{\partial \color{red}I_{q^*}} = s'(q^*) & = & \frac{e^{q^*}}{\sum_q e^q} + e^{q^*}(-1){({\sum_q e^q})}^{-2} e^{q^*} \\
+ & = & s(q^*) - s(q^*)s(q^*) = s(q^*) \left( 1-s(q^*) \right) \\
+ & = & O_{q^*} (1-O_{q^*}) \\
+\frac{\partial O_q}{\partial \color{red}I_q} = s'(q)  & = &  e^{q^*}(-1){({\sum_q e^q})}^{-2} e^q \\
+  & = & -s(q)s(q^*) = -O_q O_{q^*} = O_{q^*} ( 0 - O_q) \\
+\end{eqnarray*}
+We can combine the above two formulas into one, using the Kronecker delta:
+\[ \frac{\partial O_{q^*}}{\partial I_q} = O_{q^*} (\delta_{qq^*} - O_q) \]
+
+Go back to the derivative of the objective function w.r.t. $w_{mq}$:
+\begin{eqnarray*}
+\frac{\partial F}{\partial w_{mq}} & = & - \frac{1}{O_{q^*}} O_{q^*} (\delta_{qq^*} - O_q) O_m \\
+& = &  -(\delta_{qq^*} - O_q) O_m \\
+\end{eqnarray*}
+
+
+%http://www.emerson.emory.edu/services/latex/latex_119.html
+If we define 
+the error signal $\xi_q $ of output unit $q$ to be the negative derivative of 
+the objective function w.r.t. its input, then
+\begin{eqnarray*}
+\xi_q & \triangleq & - \frac{\partial F}{\partial I_q} = \delta_{qq^*} - O_q = \; \\
+\hat{w}_{mq} & = &  w_{mq} + \alpha \xi_q  O_m \\
+\hat{b}_{q} & = & b_q + \alpha \xi_q
+\end{eqnarray*}
+where $\xi$ is the error between the reference (0,1) and the output.
+
+\item Hidden layer N-1
+
+Now consider hidden unit $m$ at layer N-1, and unit $i$ at layer N-2.
+The error signal of hidden unit $m$ is the negative partial derivative
+of the objective function w.r.t. its input:
+\begin{eqnarray*}
+\xi_m & \triangleq & - \frac{\partial F}{\partial I_m} =  - \frac{\partial F}{\partial O_m} \frac{\partial O_m}{\partial I_m} \\
+ & = & \left( \sum_q \frac{-\partial F}{\partial I_q} w_{mq} \right) \frac{\partial O_m}{\partial I_m} \\
+% & = & \{\sum_q \xi_q w_{mq}\} (1- O_m) O_m \\
+%\hat{w}_{im} & = & w_{im} + \alpha \xi_m O_i \\
+%\hat{b}_{m} & = & b_m + \alpha \xi_m \\
+\end{eqnarray*}
+
+The output of unit $m$ is a sigmoid function, and hence its derivative is : 
+
+\begin{eqnarray*}
+O_m & = & \sigma(I_m) = \frac{1}{1+e^{-I_m}} = {(1+e^{-I_m})}^{-1}  \\
+\frac{\partial O_m}{\partial I_m} & = & -{(1+e^{-I_m})}^{-2} (-1) e^{-I_m}  \\
+& = & {(1+e^{-I_m})}^{-1}  \frac{e^{-I_m}}{1+e^{-I_m}} \\
+& = & O_m (1 - O_m) \\
+\end{eqnarray*}
+
+Hence,
+\begin{eqnarray*}
+\xi_m & = & (\sum_q \xi_q w_{mq}) (1 - O_m) O_m \\
+\hat{w}_{im} & = & w_{im} + \alpha \xi_m O_i \\
+\hat{b}_{m} & = & b_m + \alpha \xi_m \\
+\end{eqnarray*}
+
+
+\item Hidden layer N-2
+
+Similarly, for hidden unit $i$ at layer N-2, and unit $j$ at layer N-3,
+the error signal of unit $i$ is
+\begin{eqnarray*}
+\xi_i & \triangleq & - \frac{\partial F}{\partial I_i} =  - \frac{\partial F}{\partial O_i} \frac{\partial O_i}{\partial I_i} \\
+ & = & \{\sum_m \xi_m w_{im}\} (1- O_i) O_i \\
+\hat{w}_{ji} & = & w_{ji} + \alpha \xi_i O_j \\
+\hat{b}_{i} & = & b_i + \alpha \xi_i \\
+\end{eqnarray*}
+
+If $j$ is the input layer (i.e. Layer 1), then $O_j = I_j$.
+\end{itemize}
+\end{document}
+
+
