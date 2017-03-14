@@ -28,10 +28,24 @@
 $$
 	score(item)=1-\frac{ItemOffshelfTime-QueryTime}{secondsOfTwoweek}\times(\frac{docFound}{delta})
 $$
-第一代搜索算法技术的一些弊端让它们已经不能适应现代
+2. 大规模机器学习时代
+随着平台规模的扩大，大规模商家入驻，积极的在平台上打理店铺，发布商品，
+相对结构化的商品组织体系，类目结构，属性信息，基于商品为key的销量的累积，
+评论的累积，这些为更好的理解商品积累了重要的原始数据资料；
+消费者通过搜索产品的各级页面与平台的互动越来越频繁；
+数据的组织形成了以人为key的结构体系，反馈信号也得以在闭环系统中有效的流转；
+所有的这些都为理解用户积累了重要的数据资料。
+有效数据的积累为大规模运用机器学习技术解决问题提供了必要的土壤。
+
+这方面各大互联网公司和科研机构，学校公开发表出来的有参考价值的工作有不少，
+典型的有价值工作，
 
 
-作为一个公平的市场调节员，调整供需平衡，为卖家引导潜在的消费群体，以提升其ROI（return on investment），为用户提供满足其需求（user intent）的商品；商业流量下的搜索自然带有其特有的技术特点：
+
+搜索产品的典型技术课题，涉及Query理解，商品理解，个性化搜索
+
+第一代搜索算法技术的一些弊端让它们已经不能适应现代化搜索技术体系的发展。
+
 
 淘宝搜索算法技术演进之路可以分为四个阶段，如图所示： 
 
@@ -40,13 +54,17 @@ $$
 \addcontentsline{toc}{chapter}{\protect\numberline{}{\hspace{-1.5em}参考文献}}
 \markboth{参考文献}{参考文献}
 \bibitem{1} Bilinear+LinUcb的个性化主题推荐, http://www.atatech.org/articles/67847
-\bibitem{2} 流量个性化v.s商业化 - 双11珠峰项目中控算法, http://www.atatech.org/articles/67242
-\bibitem{3} 依托搜索技术的个性化平台之路, http://www.atatech.org/articles/13748
-\bibitem{4} 用户意图预估之实时意图篇, http://www.atatech.org/article/detail/12636/152
-\bibitem{5} 知人知面需知心——论人工智能技术在推荐系统中的应用，http://geek.csdn.net/news/detail/112318
-
-
-\bibitem{3} Liya Tolstikhin,  AdaGAN: boosting generative models
+\bibitem{2} 依托搜索技术的个性化平台之路, http://www.atatech.org/articles/13748
+\bibitem{3} 用户意图预估之实时意图篇, http://www.atatech.org/article/detail/12636/152
+\bibitem{4} 知人知面需知心——论人工智能技术在推荐系统中的应用，http://geek.csdn.net/news/detail/112318
+\bibitem{5} Google, Ad Click PredictionL a View from the trenches. pCTR使用LR，通过
+FTRL Proximal 算法实现在线模型更新，频率学派，写的很细致，也有工程细节
+\bibitem{6} Bing, Web-Scale Bayesian Click-through Rate Prediction for sponsored 
+Search Advertising in Microsoft‘s Bing Search Engine。 Online Bayesian Probit Regression，贝叶斯学派，涉及采样算法的模型
+\bibitem{7} Facebook, Practical Lessones from Predicting Clicks on Ads Clicks 
+on Ads at facebook。 DT+LR。 和GBDT非常类似，不同之处在于用LR重新训练了每棵树投票的权重，
+人气很旺的xgboost，在这一块也是做了优化，利用二阶导数信息得到更快收敛的步长。 缺点是
+处理不了高纬度特征，处理连续值特征有优势。
 
 
 \end{thebibliography}
