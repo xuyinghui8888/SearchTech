@@ -11,7 +11,7 @@
 \contentsline {section}{\numberline {4.1}底纹推荐技术}{8}{section.4.1}
 \contentsline {section}{\numberline {4.2}查询词改写扩展技术}{8}{section.4.2}
 \contentsline {section}{\numberline {4.3}查询词意图预测技术}{8}{section.4.3}
-\contentsline {section}{\numberline {4.4}查询词图像化映射技术}{9}{section.4.4}
+\contentsline {section}{\numberline {4.4}查询词图像化映射技术}{8}{section.4.4}
 \contentsline {section}{\numberline {4.5}AI4B实战@查询词图像化映射技术}{9}{section.4.5}
 \contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{10}{chapter*.5}
 \contentsline {chapter}{\numberline {第五章\hspace {0.3em}} 商品理解算法技术 }{11}{chapter.5}
@@ -32,6 +32,7 @@
 \contentsline {subsection}{\numberline {7.1.3}深度匹配模型}{15}{subsection.7.1.3}
 \contentsline {subsection}{\numberline {7.1.4}序列匹配模型}{15}{subsection.7.1.4}
 \contentsline {section}{\numberline {7.2}排序学习}{16}{section.7.2}
+\contentsline {subsection}{\numberline {7.2.1}}{16}{subsection.7.2.1}
 \contentsline {section}{\numberline {7.3}展示学习}{16}{section.7.3}
 \contentsline {section}{\numberline {7.4}模型参数优化}{16}{section.7.4}
 \contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{17}{chapter*.8}
@@ -62,12 +63,15 @@
 \contentsline {chapter}{\numberline {第十四章\hspace {0.3em}} 融入商业策略的流量优化探索 }{31}{chapter.14}
 \contentsline {section}{\numberline {14.1}担保式流量分发系统的算法应用}{31}{section.14.1}
 \contentsline {subsection}{\numberline {14.1.1}基于PID控制器的流量分配模型}{31}{subsection.14.1.1}
-\contentsline {section}{\numberline {14.2}驱动供应链优化的流量分发系统设计}{31}{section.14.2}
-\contentsline {section}{\numberline {14.3}商业流量与免费流量有效平衡的流量分发系统}{31}{section.14.3}
-\contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{32}{chapter*.15}
-\contentsline {chapter}{\numberline {第十五章\hspace {0.3em}}新技术视角下的搜索智能化思考}{33}{chapter.15}
-\contentsline {section}{\numberline {15.1}多智能体学习}{33}{section.15.1}
-\contentsline {section}{\numberline {15.2}强化迁移学习}{33}{section.15.2}
-\contentsline {section}{\numberline {15.3}终生学习}{33}{section.15.3}
-\contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{34}{chapter*.16}
-\contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{35}{chapter*.17}
+\contentsline {subsection}{\numberline {14.1.2}流量分配}{32}{subsection.14.1.2}
+\contentsline {subsubsection}{目标}{32}{section*.15}
+\contentsline {subsubsection}{约束}{32}{section*.16}
+\contentsline {section}{\numberline {14.2}驱动供应链优化的流量分发系统设计}{32}{section.14.2}
+\contentsline {section}{\numberline {14.3}商业流量与免费流量有效平衡的流量分发系统}{33}{section.14.3}
+\contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{34}{chapter*.18}
+\contentsline {chapter}{\numberline {第十五章\hspace {0.3em}}新技术视角下的搜索智能化思考}{35}{chapter.15}
+\contentsline {section}{\numberline {15.1}多智能体学习}{35}{section.15.1}
+\contentsline {section}{\numberline {15.2}强化迁移学习}{35}{section.15.2}
+\contentsline {section}{\numberline {15.3}终生学习}{35}{section.15.3}
+\contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{36}{chapter*.19}
+\contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{37}{chapter*.20}
