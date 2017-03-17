@@ -66,7 +66,7 @@
 \contentsline {subsection}{\numberline {14.1.2}流量分配}{32}{subsection.14.1.2}
 \contentsline {subsubsection}{目标}{32}{section*.15}
 \contentsline {subsubsection}{约束}{32}{section*.16}
-\contentsline {section}{\numberline {14.2}驱动供应链优化的流量分发系统设计}{32}{section.14.2}
+\contentsline {section}{\numberline {14.2}驱动供应链优化的流量分发系统设计}{33}{section.14.2}
 \contentsline {section}{\numberline {14.3}商业流量与免费流量有效平衡的流量分发系统}{33}{section.14.3}
 \contentsline {chapter}{\numberline {}{\hspace {-1.5em}参考文献}}{34}{chapter*.18}
 \contentsline {chapter}{\numberline {第十五章\hspace {0.3em}}新技术视角下的搜索智能化思考}{35}{chapter.15}

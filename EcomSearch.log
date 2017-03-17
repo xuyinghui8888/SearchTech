@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.14159265-2.6-0.99996 (TeX Live 2016) (preloaded format=xelatex 2016.11.28)  16 MAR 2017 23:02
+This is XeTeX, Version 3.14159265-2.6-0.99996 (TeX Live 2016) (preloaded format=xelatex 2016.11.28)  16 MAR 2017 23:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -2919,12 +2919,12 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
 ]
 
-LaTeX Warning: File `pic/chap8/cp8p1.jpeg' not found on input line 29.
+LaTeX Warning: File `pic/chap8/cp8p1.pdf' not found on input line 29.
 
-! Unable to load picture or PDF file 'pic/chap8/cp8p1.jpeg'.
+! Unable to load picture or PDF file 'pic/chap8/cp8p1.pdf'.
 <to be read again> 
                    }
-l.29 ...width=0.5\textwidth]{pic/chap8/cp8p1.jpeg}
+l.29 ...[width=0.5\textwidth]{pic/chap8/cp8p1.pdf}
                                                   
 The requested image couldn't be read because
 it was not a recognized image format.
@@ -2936,18 +2936,18 @@ See the graphics package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.29 ...width=0.5\textwidth]{pic/chap8/cp8p1.jpeg}
+l.29 ...[width=0.5\textwidth]{pic/chap8/cp8p1.pdf}
                                                   
 Your command was ignored.
 Type  I <command> <return>  to replace it with another command,
 or  <return>  to continue without it.
 
-File: pic/chap8/cp8p1.jpeg Graphic file (type QTm)
-<use  "pic/chap8/cp8p1.jpeg" >
-! Unable to load picture or PDF file 'pic/chap8/cp8p1.jpeg'.
+File: pic/chap8/cp8p1.pdf Graphic file (type QTm)
+<use  "pic/chap8/cp8p1.pdf" >
+! Unable to load picture or PDF file 'pic/chap8/cp8p1.pdf'.
 <to be read again> 
                    \GXT@clipend 
-l.29 ...width=0.5\textwidth]{pic/chap8/cp8p1.jpeg}
+l.29 ...[width=0.5\textwidth]{pic/chap8/cp8p1.pdf}
                                                   
 The requested image couldn't be read because
 it was not a recognized image format.
@@ -2966,7 +2966,7 @@ Package Fancyhdr Warning: \headheight is too small (12.0pt):
  This may cause the page layout to be inconsistent, however.
 
 [33]
-Underfull \hbox (badness 10000) in paragraph at lines 46--47
+Underfull \hbox (badness 10000) in paragraph at lines 50--51
 []\EU1/STSong(0)/m/n/12 流 量 个 性 化 \EU1/TimesNewRoman(0)/m/n/12 v.s \EU1/STSong(
 0)/m/n/12 商 业 化 \EU1/TimesNewRoman(0)/m/n/12 - \EU1/STSong(0)/m/n/12 双 \EU1/Tim
 esNewRoman(0)/m/n/12 11 \EU1/STSong(0)/m/n/12 珠 峰 项 目 中 控 算 法\EU1/TimesNewRoman
@@ -2974,7 +2974,7 @@ esNewRoman(0)/m/n/12 11 \EU1/STSong(0)/m/n/12 珠 峰 项 目 中 控 算 法\EU
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 47--48
+Underfull \hbox (badness 10000) in paragraph at lines 51--52
 []\EU1/STSong(0)/m/n/12 确 定 性 保 证 下 流 量 分 配 在 线 全 局 优 化 策 略\EU1/TimesNewRoman(0
 )/m/n/12 ,
  []
@@ -3028,8 +3028,8 @@ LaTeX Warning: There were multiply-defined labels.
  )
 (\end occurred when \ifx on line 161 was incomplete) 
 Here is how much of TeX's memory you used:
- 42320 strings out of 493591
- 821050 string characters out of 6143545
+ 42319 strings out of 493591
+ 821044 string characters out of 6143545
  838144 words of memory out of 5000000
  44917 multiletter control sequences out of 15000+600000
  16563 words of font info for 105 fonts, out of 8000000 for 9000
