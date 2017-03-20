@@ -10,12 +10,6 @@
 \end{tcolorbox}}
 \setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt}
 
-淘宝搜索作为平台的一个重要联系买家和卖家的产品形态， 
-由于其以下的特有属性，使其成为大数据智能化应用的最佳场景；
-1. 海量消费者与平台的互动行为
-2. 海量商家在平台进行的商业活动行为
-3. 海量的商品
-
 \section{算法演进之路}
 
 从pc互联网到移动互联网，阿里巴巴电商平台一路高歌猛进，
@@ -26,9 +20,6 @@
 \includegraphics[totalheight=2.0in]{fig/searchAlgoRoadmap.png}
 \caption{搜索智能化体系演进图} \label{fig:gansamples}
 \end{figure}
-12，13年在pc时代，日均3亿样本，3000w左右到访用户，计算体系则是
-
-
 
 \subsection{人工+弱算法时代} 
 这个时代的关键词：\textbf{规则 + 轮播}
@@ -46,6 +37,11 @@
 $$
 	score(item)=1-\frac{ItemOffshelfTime-QueryTime}{secondsOfTwoweek}\times(\frac{docFound}{delta})
 $$
+
+这个时代遗留下来几个关键问题需要解决：
+\begin{description}
+	\item 
+\end{description}
 
 \subsection{大规模机器学习时代}
 这个时代的关键词：\textbf{big data，offline + shallow model}
