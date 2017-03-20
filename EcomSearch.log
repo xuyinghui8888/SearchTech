@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.14159265-2.6-0.99992 (TeX Live 2015) (preloaded format=xelatex 2016.1.21)  14 MAR 2017 16:06
+This is XeTeX, Version 3.14159265-2.6-0.99992 (TeX Live 2015) (preloaded format=xelatex 2016.1.21)  19 MAR 2017 19:52
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -2223,6 +2223,9 @@ LaTeX Warning: Label `3' multiply defined.
 
 LaTeX Warning: Label `1' multiply defined.
 
+
+LaTeX Warning: Label `2' multiply defined.
+
 ) (./book/chap6.aux
 
 LaTeX Warning: Label `1' multiply defined.
@@ -2239,7 +2242,13 @@ LaTeX Warning: Label `1' multiply defined.
 
 ) (./book/gan.aux
 
+LaTeX Warning: Label `fig:gansamples' multiply defined.
+
+
 LaTeX Warning: Label `1' multiply defined.
+
+
+LaTeX Warning: Label `2' multiply defined.
 
 ) (./book/chap12.aux
 
@@ -2483,9 +2492,9 @@ File: fig/searchLog.png Graphic file (type QTm)
 
 ] (./EcomSearch.toc
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <8> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 6.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 2.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <6> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 6.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 2.
 
 [1
 
@@ -2611,6 +2620,11 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
+File: fig/searchAlgoRoadmap.png Graphic file (type QTm)
+<use  "fig/searchAlgoRoadmap.png" >
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
 [1
 
 
@@ -2623,39 +2637,63 @@ Package Fancyhdr Warning: \headheight is too small (12.0pt):
  This may cause the page layout to be inconsistent, however.
 
 [2]
-Underfull \hbox (badness 10000) in paragraph at lines 59--60
+
+Package Fancyhdr Warning: \headheight is too small (12.0pt): 
+ Make it at least 13.3499pt.
+ We now make it that large for the rest of the document.
+ This may cause the page layout to be inconsistent, however.
+
+[3]
+Underfull \hbox (badness 10000) in paragraph at lines 97--98
 []\EU1/FandolSong-Regular(0)/m/n/12 知 人 知 面 需 知 心 ——|  论 人 工 智 能 技 术 在 推 荐 系 统 
 中 的 应 用，|
  []
 
-) [3
 
-]
-\openout2 = `book/chap11.aux'.
-
- (./book/chap11.tex
-第二章
-
-Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
-[]
+Underfull \hbox (badness 10000) in paragraph at lines 106--107
+[]\EU1/FandolSong-Regular(0)/m/n/12 我 所 经 历 的 大 数 据 平 台 发 展 史  |（三）：|  互 联 网 时 
+代 \EU1/TimesNewRoman(0)/m/n/12 • \EU1/FandolSong-Regular(0)/m/n/12 上 篇\EU1/Time
+sNewRoman(0)/m/n/12 ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 6--12
-
+Underfull \hbox (badness 10000) in paragraph at lines 106--107
+\EU1/TimesNewRoman(0)/m/n/12 http://www.infoq.com/cn/articles/the-development-h
+istory-of-big-data-platform-
  []
 
 [4
 
-
-
-]) [5
-
 ]
-\openout2 = `book/chap2.aux'.
+Underfull \hbox (badness 6204) in paragraph at lines 107--109
+[]\EU1/TimesNewRoman(0)/m/n/12 Fast and Reliable Online Learning to Rank for In
+formation Retrieval,
+ []
 
- (./book/chap2.tex
-第三章
+
+Underfull \hbox (badness 10000) in paragraph at lines 107--109
+\EU1/TimesNewRoman(0)/m/n/12 https://khofm.files.wordpress.com/2013/04/thesis-k
+atja-hofmann-online-
+ []
+
+
+Underfull \hbox (badness 2529) in paragraph at lines 110--112
+[]\EU1/TimesNewRoman(0)/m/n/12 C.J.C. Burges, FromRankNettoLambdaRanktoLambdaMA
+RT: An overview,
+ []
+
+)
+
+Package Fancyhdr Warning: \headheight is too small (12.0pt): 
+ Make it at least 13.3499pt.
+ We now make it that large for the rest of the document.
+ This may cause the page layout to be inconsistent, however.
+
+[5]
+\openout2 = `book/chap11.aux'.
+
+ (./book/chap11.tex
+第二章
 
 Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
 []
@@ -2673,10 +2711,10 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 ]) [7
 
 ]
-\openout2 = `book/chap3.aux'.
+\openout2 = `book/chap2.aux'.
 
- (./book/chap3.tex
-第四章
+ (./book/chap2.tex
+第三章
 
 Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
 []
@@ -2691,6 +2729,27 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
 
 
+]) [9
+
+]
+\openout2 = `book/chap3.aux'.
+
+ (./book/chap3.tex
+第四章
+
+Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
+[]
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 6--12
+
+ []
+
+[10
+
+
+
 ]
 
 Package Fancyhdr Warning: \headheight is too small (12.0pt): 
@@ -2698,7 +2757,7 @@ Package Fancyhdr Warning: \headheight is too small (12.0pt):
  We now make it that large for the rest of the document.
  This may cause the page layout to be inconsistent, however.
 
-[9]) [10
+[11]) [12
 
 ]
 \openout2 = `book/chap13.aux'.
@@ -2715,12 +2774,12 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[11
+[13
 
 
 
 ]
-Underfull \hbox (badness 10000) in paragraph at lines 31--32
+Underfull \hbox (badness 10000) in paragraph at lines 33--34
 []\EU1/FandolSong-Regular(0)/m/n/12 流 量 个 性 化 \EU1/TimesNewRoman(0)/m/n/12 v.s 
 \EU1/FandolSong-Regular(0)/m/n/12 商 业 化 \EU1/TimesNewRoman(0)/m/n/12 - \EU1/Fan
 dolSong-Regular(0)/m/n/12 双 \EU1/TimesNewRoman(0)/m/n/12 11 \EU1/FandolSong-Reg
@@ -2728,17 +2787,17 @@ ular(0)/m/n/12 珠 峰 项 目 中 控 算 法\EU1/TimesNewRoman(0)/m/n/12 ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 32--33
+Underfull \hbox (badness 10000) in paragraph at lines 34--35
 []\EU1/FandolSong-Regular(0)/m/n/12 确 定 性 保 证 下 流 量 分 配 在 线 全 局 优 化 策 略\EU1/Tim
 esNewRoman(0)/m/n/12 ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 35--36
+Underfull \hbox (badness 10000) in paragraph at lines 37--38
 []\EU1/TimesNewRoman(0)/m/n/12 Unbiased Learning-to-Rank with Biased Feedback,
  []
 
-) [12
+) [14
 
 ]
 \openout2 = `book/userprof.aux'.
@@ -2755,11 +2814,11 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[13
+[15
 
 
 
-]) [14
+]) [16
 
 ]
 \openout2 = `book/chap4.aux'.
@@ -2776,7 +2835,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[15
+[17
 
 
 
@@ -2787,13 +2846,13 @@ Package Fancyhdr Warning: \headheight is too small (12.0pt):
  We now make it that large for the rest of the document.
  This may cause the page layout to be inconsistent, however.
 
-[16]
-Underfull \hbox (badness 10000) in paragraph at lines 39--40
+[18]
+Underfull \hbox (badness 10000) in paragraph at lines 42--43
 []\EU1/FandolSong-Regular(0)/m/n/12 淘 宝 搜 索 全 链 路 有 效 行 为 量 化 模 型 \EU1/TimesNew
 Roman(0)/m/n/12 (UBM&UCM),
  []
 
-) [17
+) [19
 
 ]
 \openout2 = `book/chap5.aux'.
@@ -2810,7 +2869,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[18
+[20
 
 
 
@@ -2821,13 +2880,13 @@ Package Fancyhdr Warning: \headheight is too small (12.0pt):
  We now make it that large for the rest of the document.
  This may cause the page layout to be inconsistent, however.
 
-[19]
-Underfull \hbox (badness 10000) in paragraph at lines 30--31
+[21]
+Underfull \hbox (badness 10000) in paragraph at lines 32--33
 []\EU1/FandolSong-Regular(0)/m/n/12 基 于 在 线 矩 阵 分 解 的 淘 宝 搜 索 实 时 个 性 化\EU1/Tim
 esNewRoman(0)/m/n/12 ,
  []
 
-) [20
+) [22
 
 ]
 \openout2 = `book/chap10.aux'.
@@ -2844,11 +2903,18 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[21
+[23
 
 
 
-]) [22
+]
+
+Package Fancyhdr Warning: \headheight is too small (12.0pt): 
+ Make it at least 13.3499pt.
+ We now make it that large for the rest of the document.
+ This may cause the page layout to be inconsistent, however.
+
+[24]) [25
 
 ]
 \openout2 = `book/chap6.aux'.
@@ -2865,7 +2931,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[23
+[26
 
 
 
@@ -2876,7 +2942,7 @@ olSong-Regular(0)/m/n/12 关 键 词 红 包：|  搜 索 链 路 新 型 互 �
 an(0)/m/n/12 ,
  []
 
-) [24
+) [27
 
 ]
 \openout2 = `book/transferlearning.aux'.
@@ -2893,11 +2959,11 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[25
+[28
 
 
 
-]) [26
+]) [29
 
 ]
 \openout2 = `book/gan.aux'.
@@ -2914,73 +2980,29 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 
  []
 
-[27
+File: fig/standard_gan.png Graphic file (type QTm)
+<use  "fig/standard_gan.png" >
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[30
 
 
 
-]) [28
+]
+
+Package Fancyhdr Warning: \headheight is too small (12.0pt): 
+ Make it at least 13.3499pt.
+ We now make it that large for the rest of the document.
+ This may cause the page layout to be inconsistent, however.
+
+[31]) [32
 
 ]
 \openout2 = `book/chap12.aux'.
 
  (./book/chap12.tex
 第十三章
-
-Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
-[]
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 6--12
-
- []
-
-[29
-
-
-
-]) [30
-
-]
-\openout2 = `book/chap8.aux'.
-
- (./book/chap8.tex
-第十四章
-
-Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
-[]
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 6--12
-
- []
-
-[31
-
-
-
-]
-Underfull \hbox (badness 10000) in paragraph at lines 29--30
-[]\EU1/FandolSong-Regular(0)/m/n/12 流 量 个 性 化 \EU1/TimesNewRoman(0)/m/n/12 v.s 
-\EU1/FandolSong-Regular(0)/m/n/12 商 业 化 \EU1/TimesNewRoman(0)/m/n/12 - \EU1/Fan
-dolSong-Regular(0)/m/n/12 双 \EU1/TimesNewRoman(0)/m/n/12 11 \EU1/FandolSong-Reg
-ular(0)/m/n/12 珠 峰 项 目 中 控 算 法\EU1/TimesNewRoman(0)/m/n/12 ,
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 30--31
-[]\EU1/FandolSong-Regular(0)/m/n/12 确 定 性 保 证 下 流 量 分 配 在 线 全 局 优 化 策 略\EU1/Tim
-esNewRoman(0)/m/n/12 ,
- []
-
-) [32
-
-]
-\openout2 = `book/chap9.aux'.
-
- (./book/chap9.tex
-第十五章
 
 Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
 []
@@ -2998,9 +3020,65 @@ Underfull \hbox (badness 10000) in paragraph at lines 6--12
 ]) [34
 
 ]
+\openout2 = `book/chap8.aux'.
+
+ (./book/chap8.tex
+第十四章
+
+Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
+[]
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 6--12
+
+ []
+
+[35
+
+
+
+]
+Underfull \hbox (badness 10000) in paragraph at lines 33--34
+[]\EU1/FandolSong-Regular(0)/m/n/12 流 量 个 性 化 \EU1/TimesNewRoman(0)/m/n/12 v.s 
+\EU1/FandolSong-Regular(0)/m/n/12 商 业 化 \EU1/TimesNewRoman(0)/m/n/12 - \EU1/Fan
+dolSong-Regular(0)/m/n/12 双 \EU1/TimesNewRoman(0)/m/n/12 11 \EU1/FandolSong-Reg
+ular(0)/m/n/12 珠 峰 项 目 中 控 算 法\EU1/TimesNewRoman(0)/m/n/12 ,
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 34--35
+[]\EU1/FandolSong-Regular(0)/m/n/12 确 定 性 保 证 下 流 量 分 配 在 线 全 局 优 化 策 略\EU1/Tim
+esNewRoman(0)/m/n/12 ,
+ []
+
+) [36
+
+]
+\openout2 = `book/chap9.aux'.
+
+ (./book/chap9.tex
+第十五章
+
+Overfull \hbox (7.0pt too wide) in paragraph at lines 6--12
+[]
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 6--12
+
+ []
+
+[37
+
+
+
+]) [38
+
+]
 \openout2 = `reference/references.aux'.
 
- (./reference/references.tex) [35
+ (./reference/references.tex) [39
 
 
 
@@ -3022,12 +3100,12 @@ LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 41374 strings out of 493706
- 813127 string characters out of 6145769
- 864753 words of memory out of 5000000
- 43914 multiletter control sequences out of 15000+600000
+ 41427 strings out of 493706
+ 815160 string characters out of 6145769
+ 866890 words of memory out of 5000000
+ 43965 multiletter control sequences out of 15000+600000
  16579 words of font info for 107 fonts, out of 8000000 for 9000
  1328 hyphenation exceptions out of 8191
  63i,12n,85p,10463b,549s stack positions out of 5000i,500n,10000p,200000b,80000s
 
-Output written on EcomSearch.pdf (41 pages).
+Output written on EcomSearch.pdf (45 pages).
