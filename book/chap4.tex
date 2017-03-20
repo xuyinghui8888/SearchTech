@@ -33,7 +33,7 @@
 
 2，在机器学习的任务环境中，我们有大量的场景都是需要做一个序列预测和带有记忆的推断的。例如在query自动补全的场景下，我们需要根据用户输入的文字或者词序列来预测用户下一个最可能会输入的词语；又例如有这样一个问题，需要让机器在阅读了一整篇文章后，回答若干关于这个文章的问题。这类问题和场景下都需要模型具有一定的记忆能力，能在获取新信息的同时，记住部分老的信息。
 
-最常用而有效的方式是使用一个递归神经网络模型(RNN \cite{4,5})。正如其名字描述的，递归神经网络在隐层结构上存在一个循环，即当前隐层的输入是上一个隐层的输出以及当前的输入2项一起。由于每个隐层的信息都能递归的输入到下一个隐层中，因此会具有一定的记忆能力。如图\ref{fig:RNN}，我们将RNN按时间序列“打开”，可以看到前一时刻的隐层$S_{t-1}$和当前输入$X_t$会共同影响当前的隐层$S_{t}$。
+A) 最常用而有效的方式是使用一个递归神经网络模型(RNN \cite{4,5})。正如其名字描述的，递归神经网络在隐层结构上存在一个循环，即当前隐层的输入是上一个隐层的输出以及当前的输入2项一起。由于每个隐层的信息都能递归的输入到下一个隐层中，因此会具有一定的记忆能力。如图\ref{fig:RNN}，我们将RNN按时间序列“打开”，可以看到前一时刻的隐层$S_{t-1}$和当前输入$X_t$会共同影响当前的隐层$S_{t}$。
 
 \begin{figure}
 	\centering
@@ -42,7 +42,20 @@
 	\label{fig:RNN}
 \end{figure}	
 
-然而RNN存在的最大问题是“梯度消失和爆炸”问题。这是因为在神经网络进行反向传播(backpropagation)的时候，传播的梯度会是$w_{l,h}(t)$(递归网络的权重)的倍数；因此在递归层数较深的时候，梯度会消失掉(当$w_{l,h}(t)<1$)或者爆炸(当$w_{l,h}(t)>1$)。
+然而RNN存在的最大问题是“梯度消失和爆炸”问题\cite{6}。这是因为在神经网络进行反向传播(backpropagation)的时候，传播的梯度会是$w_{l,h}(t)$(递归网络的权重)的倍数；因此在递归层数较深的时候，梯度会消失掉(当$|w_{l,h}*y^{'}_{l}|<1$)或者爆炸(当$|w_{l,h}*y^{'}_{l}|>1$)。由于RNN存在“梯度消失和爆炸”问题，RNN的“记忆”只能是很短期的，并不具备长期的记忆。
+
+B) 为了解决梯度消失和爆炸”问题，一种更为巧妙的递归网络结构LSTM(Long Short-Term Memory)cite{5}被设计了出来。在LSTM中，RNN中递归的隐层单元被一个存储单元(LSTMUnit)所替代，每个存储单元由一个输入门(InputGate)，一个输出门(OutputGate)和一个长期的内部的通过遗忘门(ForgetGate)更新的内部状态(Cell)相关联,如图\ref{fig:LSTM}。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/LSTM"}
+	\caption{LSTM(Long Short-Term Memory)示意图}
+	\label{fig:LSTM}
+\end{figure}
+
+内部状态Cell可以可以理解为模型存储的长期记忆：每进行一次递归迭代的时候，Cell会通过遗忘门遗忘掉部分记忆，同时通过输入门决定当前输入有多少有效信息是需要被记住的，从而得到新的记忆。最终的输出通过当前新的记忆得到，由输出们决定新的记忆中哪些是当前需要的。在LSTM的反向传播过程中，不同于RNN中梯度是一个连乘的形式(由于链式法则)，可以转化成一个连加的形式，因此有效的避免了梯度的消失和爆炸，从而具备一定的长期记忆的能力。
+
+C) 递归神经网络外主要能有效的处理“序列”相关的问题，因此被大量的用在NLP的问题中。除了RNN外，也有一些其他的模型有类似功能，例如神经图灵机(Neural Turing Machine, NTM\cite{7})和记忆神经网络(Memory Networks,MenNN\cite{8,9}),他们在不同场景下会比RNN“记住”更久远的信息。
 
 3，序列模型具体在搜索场景的应用
 
@@ -66,6 +79,10 @@
 \bibitem{3} 搜索个性化介绍, http://www.atatech.org/articles/48548
 \bibitem{4} Mikolov, T., Karafi´at, M., Burget, L., Cernock`y, J., Khudanpur, S.: Recurrent neural network based language model. J. Interspeech. 1045–1048 (2010)
 \bibitem{5}  Hochreiter, S., Schmidhuber J.: Long short-term memory. J. Neural Computation. 9(8), 1735–1780 (1997)
+\bibitem{6} Learning Long-Term Dependencies with Gradient Descent is Difficult
+\bibitem{7} Graves, A., Wayne, G., Danihelka, I.: Neural Turing Machine. arXiv preprint:1410.5401v2 (2014)
+\bibitem{8} Weston, J., Chopra, S., Bordes, A.: Memory Networks. C. International Conference on Learning Representations. arXiv:1410.3916 (2015)
+\bibitem{9} Sukhbaatar, S., Szlam, A., Weston, J., Fergus, R.: End-To-End Memory Networks. J. Advances in Neural Information Processing Systems. 28, 2440–2448 (2015)
 \end{thebibliography}
 
  
