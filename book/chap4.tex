@@ -53,9 +53,9 @@ B) 为了解决梯度消失和爆炸”问题，一种更为巧妙的递归网�
 	\label{fig:LSTM}
 \end{figure}
 
-内部状态Cell可以可以理解为模型存储的长期记忆：每进行一次递归迭代的时候，Cell会通过遗忘门遗忘掉部分记忆，同时通过输入门决定当前输入有多少有效信息是需要被记住的，从而得到新的记忆。最终的输出通过当前新的记忆得到，由输出们决定新的记忆中哪些是当前需要的。在LSTM的反向传播过程中，不同于RNN中梯度是一个连乘的形式(由于链式法则)，可以转化成一个连加的形式，因此有效的避免了梯度的消失和爆炸，从而具备一定的长期记忆的能力。
+内部状态Cell可以可以理解为模型存储的长期记忆：每进行一次递归迭代的时候，Cell会通过遗忘门遗忘掉部分记忆，同时通过输入门决定当前输入有多少有效信息是需要被记住的，从而得到新的记忆。最终的输出通过当前新的记忆得到，由输出们决定新的记忆中哪些是当前需要的。在LSTM的反向传播过程中，不同于RNN中梯度是一个连乘的形式(由于链式法则)，可以转化成一个连加的形式，因此有效的避免了梯度的消失和爆炸，从而具备一定的长期记忆的能力。在基础的LSTM基础上，学者们提出了多种LSTM的变种，比如\cite{10}、GRU\cite{11}和 Clockwork RNN\cite{12},他们在计算性能上会有较大的差别，然而效果基本没太大差距\cite{13,14}。
 
-C) 递归神经网络外主要能有效的处理“序列”相关的问题，因此被大量的用在NLP的问题中。除了RNN外，也有一些其他的模型有类似功能，例如神经图灵机(Neural Turing Machine, NTM\cite{7})和记忆神经网络(Memory Networks,MenNN\cite{8,9}),他们在不同场景下会比RNN“记住”更久远的信息。
+C) 递归神经网络外主要能有效的处理“序列”相关的问题，因此被大量的用在NLP的问题中。除了RNN外，也有一些其他的模型有类似功能，例如神经图灵机(Neural Turing Machine, NTM\cite{7})和记忆神经网络(Memory Networks,MenNN\cite{8,9}),他们在不同场景下会比RNN“记住”更久远的信息，从而得到更好的效果。神经图灵机的主要思想是使用一个$M*N$的矩阵取存储一份长期记忆（这与LSTM是类似的，只是LSTM维护的是一个向量），该矩阵和一个神经网络共同
 
 3，序列模型具体在搜索场景的应用
 
@@ -80,9 +80,14 @@ C) 递归神经网络外主要能有效的处理“序列”相关的问题，�
 \bibitem{4} Mikolov, T., Karafi´at, M., Burget, L., Cernock`y, J., Khudanpur, S.: Recurrent neural network based language model. J. Interspeech. 1045–1048 (2010)
 \bibitem{5}  Hochreiter, S., Schmidhuber J.: Long short-term memory. J. Neural Computation. 9(8), 1735–1780 (1997)
 \bibitem{6} Learning Long-Term Dependencies with Gradient Descent is Difficult
-\bibitem{7} Graves, A., Wayne, G., Danihelka, I.: Neural Turing Machine. arXiv preprint:1410.5401v2 (2014)
-\bibitem{8} Weston, J., Chopra, S., Bordes, A.: Memory Networks. C. International Conference on Learning Representations. arXiv:1410.3916 (2015)
+\bibitem{7} Graves, A., Wayne, G., Danihelka, I.: Neural Turing Machine. arXiv preprint:1410.5401v2 (2014)
+\bibitem{8} Weston, J., Chopra, S., Bordes, A.: Memory Networks. C. International Conference on Learning Representations. arXiv:1410.3916 (2015)
 \bibitem{9} Sukhbaatar, S., Szlam, A., Weston, J., Fergus, R.: End-To-End Memory Networks. J. Advances in Neural Information Processing Systems. 28, 2440–2448 (2015)
+\bibitem{10} Gers, Felix A and Schmidhuber, J: Recurrent Nets that Time and Count. J. in IJCNN 2000
+\bibitem{11} Cho, Kyunghyun and Van Merrienboer, Bart and Gulcehre, Caglar and Bahdanau, Dzmitry and Bougares, Fethi and Schwenk, Holger and Bengio, Yoshuai: Learning Phrase Representations using RNN Encoder–Decoder for Statistical Machine Translation. arXiv preprint arXiv:1406.1078 (2014)
+\bibitem{12} Koutnik, Jan and Greff, Klaus and Gomez, Faustino and Schmidhuber, Juergen: A Clockwork RNN. J. arXiv preprint arXiv:1402.3511 (2014)
+\bibitem{13} Zaremba, Wojciech: An Empirical Exploration of Recurrent Network Architectures. in LMLR 2015
+\bibitem{14} Greff, Klaus and Srivastava, Rupesh K and Koutnik, Jan and Steunebrink, Bas R and Schmidhuber, J: A search space odyssey. IEEE transactions on neural networks and learning systems (2016)
 \end{thebibliography}
 
  
