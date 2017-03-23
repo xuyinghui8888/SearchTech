@@ -99,12 +99,13 @@
 	
 	
 \subsection{一阶人货匹配模型} 
-	@席奈 u2i，u2s，u2b 
+	@丹鸥 u2i，u2s，u2b 
 
 \subsection{高阶人货匹配模型} 
-	@席奈 u2i2i，u2s2i，u2b2i 
+	@丹鸥 u2i2i，u2s2i，u2b2i 
 
 \subsection{深度匹配模型} 
+    @席奈 和序列匹配模型合并。
 
 \subsection{序列匹配模型} 
 1，前面三个章节我们递进的描述了用户与单个商品之间的匹配方式和模型。然而，上述方法均假设用户的购物行为之间是独立的——并不存在依赖、相关或序列关系。
@@ -119,7 +120,7 @@
 
 A) 最常用而有效的方式是使用一个递归神经网络模型(RNN \cite{4,5})。正如其名字描述的，递归神经网络在隐层结构上存在一个循环，即当前隐层的输入是上一个隐层的输出以及当前的输入2项一起。由于每个隐层的信息都能递归的输入到下一个隐层中，因此会具有一定的记忆能力。如图\ref{fig:RNN}，我们将RNN按时间序列“打开”，可以看到前一时刻的隐层$S_{t-1}$和当前输入$X_t$会共同影响当前的隐层$S_{t}$。
 
-\begin{figure}
+\begin{figure}[h]
 	\centering
 	\includegraphics[width=0.8\linewidth]{"fig/RNN"}
 	\caption{递归神经网络(RNN)示意图}
@@ -137,15 +138,86 @@ B) 为了解决梯度消失和爆炸”问题，一种更为巧妙的递归网�
 	\label{fig:LSTM}
 \end{figure}
 
-内部状态Cell可以可以理解为模型存储的长期记忆：每进行一次递归迭代的时候，Cell会通过遗忘门遗忘掉部分记忆，同时通过输入门决定当前输入有多少有效信息是需要被记住的，从而得到新的记忆。最终的输出通过当前新的记忆得到，由输出们决定新的记忆中哪些是当前需要的。在LSTM的反向传播过程中，不同于RNN中梯度是一个连乘的形式(由于链式法则)，可以转化成一个连加的形式，因此有效的避免了梯度的消失和爆炸，从而具备一定的长期记忆的能力。在基础的LSTM基础上，学者们提出了多种LSTM的变种，比如\cite{10}、GRU\cite{11}和 Clockwork RNN\cite{12},他们在计算性能上会有较大的差别，然而效果基本没太大差距\cite{13,14}。
+内部状态Cell可以可以理解为模型存储的长期记忆：每进行一次递归迭代的时候，Cell会通过遗忘门遗忘掉部分记忆，同时通过输入门决定当前输入有多少有效信息是需要被记住的，从而得到新的记忆。最终的输出通过当前新的记忆得到，由输出们决定新的记忆中哪些是当前需要的。在LSTM的反向传播过程中，不同于RNN中梯度是一个连乘的形式(由于链式法则)，可以转化成一个连加的形式，因此有效的避免了梯度的消失和爆炸，从而具备一定的长期记忆的能力。在基础的LSTM基础上，学者们提出了多种LSTM的变种，比如\cite{10}、GRU\cite{11}和 Clockwork RNN\cite{12},他们在计算性能上会有较大的差别，然而效果基本没太大差距\cite{13,14}。一个基本的LSTM更新公式如下：
+\begin{eqnarray}
+i_t &=& \sigma(W_{hi} * h_{t-1} + W_{xi} * x_t + b_i)
+\\
+f_t &=& \sigma(W_{hf} * h_{t-1} + W_{xf} * x_t + b_f)
+\\
+o_t &=& \sigma(W_{ho} * h_{t-1} + W_{xo} * x_to+ b_o)
+\\
+g_t &=& tanh(W_{hg} * h_{t-1} + W_{xg} * x_t + b_g)
+\\
+c_t &=& (f_t .* c_{t-1}) + (i_t .* g_t)
+\\
+h_t &=& o_t .* tanh(c_t)
+\end{eqnarray}
 
-C) 递归神经网络外主要能有效的处理“序列”相关的问题，因此被大量的用在NLP的问题中。除了RNN外，也有一些其他的模型有类似功能，例如神经图灵机(Neural Turing Machine, NTM\cite{7})和记忆神经网络(Memory Networks,MenNN\cite{8,9}),他们在不同场景下会比RNN“记住”更久远的信息，从而得到更好的效果。神经图灵机的主要思想是使用一个$M*N$的矩阵取存储一份长期记忆（这与LSTM是类似的，只是LSTM维护的是一个向量），该矩阵和一个神经网络共同
+C) 递归神经网络外主要能有效的处理“序列”相关的问题，因此被大量的用在NLP的问题中。除了RNN外，也有一些其他的模型有类似功能，例如神经图灵机(Neural Turing Machine, NTM\cite{7})和记忆神经网络(Memory Networks,MenNN\cite{8,9}),他们在不同场景下会比RNN“记住”更久远的信息，从而得到更好的效果。神经图灵机的主要思想是使用一个$M*N$的矩阵取存储一份长期记忆（这与LSTM是类似的，只是LSTM维护的是一个向量），该矩阵和一个神经网络共同进行学习和预测。记忆矩阵会通过选择性的读和写来进行迭代更新，同时由于每部分都是可微的，因此可以通过梯度下降法进行训练。NTM的基本工作原理如下图：
 
-3，序列模型具体在搜索场景的应用
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/NTM"}
+	\caption{Neural Turing Machine（NTM）示意图}
+	\label{fig:NTM}
+\end{figure}
+
+记忆神经网络\cite{8}主要用在长期记忆的推断，网络会从一个长文本中自动的将重要的信息编码后记录下来。最后产出的模型能回答关于长文本的任何问题——根据问题从记忆中寻找相关内容，然后产生答案。一个经典的MemNN的预测过程由简单的4步组成：
+\begin{itemize}
+	\item[-] 将输入$x$编码成一个隐向量$I(x)$。
+	\item[-] 更新记忆$m_i$，$m_i=G(m_i, I(x), m)$。即通过当前的隐向量，当前记忆，整体记忆，去更新记忆中的一块内容。
+	\item[-] 通过当天的记忆内容和输入决定输出向量。$o = O(I(x),m)$
+	\item[-] 最后将输出向量解析成最终的回答。$r = R(o)$
+\end{itemize}
+然而MemNN的一个问题在于并不能End-to-End的去学习，同时NTM和MemNN并没有关注输入的顺序信息。
+
+3，在个性化搜索中，最为重要的是怎么去理解和认识一个淘宝的用户。除了用户的一些基本画像信息，我们拥有最为关键的、与其他平台不同的数据是用户在淘宝上的行为。由于用户在淘宝上的行为天然是一个长期的行为序列，因此很自然考虑使用RNN等序列模型取进行处理。一个最基础的模型结构如图\ref{fig:MULTI-LSTM}。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/MULTI-LSTM"}
+	\caption{淘宝序列匹配模型示意图}
+	\label{fig:MULTI-LSTM}
+\end{figure}
+
+从图中我们可以看到网络主要由3大部分组成，分别是：1，首先得到用户的行为序列；2，将用户的行为序列经过一个带记忆的网络编码成隐向量H；3，将H通过多目标网络训练不同的目标。那么下面我们将从这三方面详细说明淘宝搜索中的序列匹配模型。
+
+a)首先是用户序列部分。我们使用用户有过行为的商品序列作为用户的表示，每一个商品被embedding到一个128维的向量中，这个向量可以从word2vec的方法进行无监督学习得到，也可以从一个长期fine tune的深度神经网络得到。在获得商品表示的算法中，一个商品embedding前的编码主要包括商品ID、店铺、类目、价格信息。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/Item_embedding"}
+	\caption{商品embedding}
+	\label{fig:Item_embedding}
+\end{figure}
+
+商品的embedding部分是在训练训练网络前提前训练好的，我们并没有将其放到训练序列的网络中，主要是因为ID特征十分稀疏，在一个LSTM的网络中，数据可能并不支持训练这么大规模的特征维度，从而影响模型的整体效果。然而这样的问题是，预训练得到的商品只包含了基本的商品特征，可能并不最适合当前的序列匹配网络。因此受transfer learning的启发，
+向量经过embedding的商品向量并不是直接作为特征输入到LSTM或者MemNN中，而是根据商品的行为类型（点击、成交、收藏、加购）和来源经过不同的卷积核生成一个新的128维向量，然后输入到序列网络。这样既对用户的行为进行了区分，可以学习得到不同行为的重要性；同时对预训练得到的商品向量往新的目标上调整。
+
+b)在得到用户的商品行为序列后，我们需要使用一个序列或者记忆模型，将序列编码成一个通用的用户状态H。这里我们对比了LSTM和End-to-end memory network\cite{9}。LSTM在上文中已经有过一些介绍，而一个End-to-end memory network与经典的memNN的区别在于它可以通过一个整体的网络去学习，基本的网络结构如图\ref{fig:end2end}。它首先将输入序列中的每一项同时映射成2个向量$m_i$和$c_i$，分别表示“输入记忆”和“输出记忆”。“输入记忆”决定序列中每一项的重要性$p_i$，$p_i$和和$c_i$相乘求和得到输出向量$o$。输出向量$o$和用户向量决定最终的答案$a$。LSTM使用一个记忆单元$Cell$去记忆历史信息；而End-to-end memory network正着重于将原始序列压缩，并自动挖掘序列中元素的重要性。我们使用两种方法在大量数据上进行了实验对比，从AUC来看LSTM会略优于End-to-end memory network，但是End-to-end memory network在计算速度上会远优于LSTM。
+\begin{eqnarray}
+c_i &=& \sigma(W_{c} * x_{i}
+\\
+m_i &=& \sigma(W_{m} * x_{i}
+\\
+p_i &=& Softmax(u^T m_i)
+\\
+o &=& \sum_{i}p_i c_i
+\\
+a &=& Softmax(W(o+u))
+\end{eqnarray}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/end2end"}
+	\caption{End-to-end memory network}
+	\label{fig:end2end}
+\end{figure}
+
+c)在得到的用户的隐向量后，进行匹配是容易的，只需要一个不用太深的DNN网络对用户向量H和商品向量放到一起进行预测即可。但是为了学到更加鲁棒的网络结构，我们使用multi-task的相关技术\cite{16}建立了多个辅助目标共同学习。因为multi-task learning不是本章重点，因此不再详细介绍，结果部分会有相关对比结果。
 
 4，结果展示
 
-	
 \section{排序学习}
 	@元涵，@凌运， @龙楚
 	\subsection{个性化体验}
@@ -175,6 +247,7 @@ C) 递归神经网络外主要能有效的处理“序列”相关的问题，�
 \bibitem{12} Koutnik, Jan and Greff, Klaus and Gomez, Faustino and Schmidhuber, Juergen: A Clockwork RNN. J. arXiv preprint arXiv:1402.3511 (2014)
 \bibitem{13} Zaremba, Wojciech: An Empirical Exploration of Recurrent Network Architectures. in LMLR 2015
 \bibitem{14} Greff, Klaus and Srivastava, Rupesh K and Koutnik, Jan and Steunebrink, Bas R and Schmidhuber, J: A search space odyssey. IEEE transactions on neural networks and learning systems (2016)
+\bibitem{15} Misra, Ishan and Shrivastava, Abhinav and Gupta, Abhinav and Hebert, Martial: Cross-stitch networks for multi-task learning. CVPR (2016)
 \end{thebibliography}
 
  
