@@ -14,22 +14,6 @@
 \section{商业变现模式对比} 
 
 
-\begin{table}
-\caption[现有商业模式对比.}
-\centering
-\begin{tabular}{cc}
-\toprule
- 类型 & 优点 & 缺点 \\ 
-\midrule
-CPC模式     & 点击率的预估准确性高，使得平台的流量利用效率高，卖家的流量确定性高 & 点击率的预估准确性高，使得平台的流量利用效率高，卖家的流量确定性高 \\ 
-CPM模式     & V \\ 
-固定佣金模式  &  \\
-返利模式     &
-营销活动     &
-\bottomrule 
-\end{tabular}
-\end{table}
-
 
 
 \section{担保式流量分发系统的算法应用}
@@ -48,13 +32,14 @@ CPM模式     & V \\
 问题可形式化成如下的优化问题
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.5\textwidth]{pic/chap8/cp8p1.pdf}
+  \includegraphics[width=0.5\textwidth]{FIG/cp8p1.pdf}
   \caption{sigmoid}\label{fig:digit}
 \end{figure}
 假设流量干预下q到s的ctr与正常排序下q到s的ctr相同，且忽略位置对ctr的影响。
 为了方便求解，假设关键词的搜索量和点击率是固定的。事实上，大促期间关键词的主动搜索也是存在增量的，而且有一些关键词推荐场景会对活动商家的进店query进行引导，可以将query搜索量的变化带来的点击收益累计到目标中来。
 
 由于大促的特殊性，线上情况和历史表现可能存在较大的差异，所以在离线预估了每个卖家ctr阈值的基础上，还需要用在线的PID控制器进行流量控制，也就是对每个卖家的ctr阈值进行在线调整。
+
 
 
 \section{驱动供应链优化的流量分发系统设计} 

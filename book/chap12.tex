@@ -9,6 +9,81 @@
 
 \end{tcolorbox}}
 \setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
+\kai\textcolor{darkblue}{1.基于GraphMining炒信识别技术．}
+
+\kai\textcolor{darkblue}{2.搜索反作弊舆情系统架构．}
+
+\end{tcolorbox}}
+\setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
+
+淘宝搜索为了维护公平、公正的搜索排序环境，严厉打击商家刷销量行为。下面简单介绍以下两种基于GraphMining的虚假交易识别。
+
+\section{物流网络} 
+
+\subsection {基于物流网络识别虚假交易}
+
+当前淘宝炒信卖家为了提升自己的销量，进行虚假交易行为，随着虚假交易识别的精准性，卖家和炒信买家通过盗用正常用户的运单、地址信息，模拟真实交易，影响搜索排序，商品评价体系，最终影响正常用户购物决策。如图 13.1，蓝色点为买家、红色点为商品，存在复杂交易网络，在如下交易网络中我们加入物流信息节点，进行虚假交易识别
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/lspam"}
+	\caption{交易网络示意图}
+	\label{fig:lspam}
+\end{figure}
+
+物流网络识别算法如下:
+
+1.原始交易网络边：$AC$、$BD$
+
+2.物流运单网络边：$AX$、$XC$、$BX$、$XD$
+
+3.同人网络边：$AB$、$CD$、$BC$在实际网路中同人网络最多出线如上几条边情况，假如$AC$出现同人边，则为卖家自炒作
+
+4.信息盗用炒作识别技术方案:1).依照同人、物流、交易网络构建物流网。2).由于一笔运单号在正常情况下只能被一对买卖家使用，将问题转化为经典图染色问题。3).实际算法中采用DFS遍历网络节点，并进行染色，产出运单号中多次染色节点，如图 13.2
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/lspam2"}
+	\caption{物流网络识别示意图}
+	\label{fig:lspam2}
+\end{figure}
+
+\section{行为网络模型} 
+行为网络模型基于用户交易过程中的相关日志数据结合相关交易网络关系识别异常交易。行为网络模型分为用户-商品异常行为分类与基于交易图网络关系的传播算法两部分。
+
+在假设正常用户与异常用户在交易过程中具有不同的行为特征的前提下，用户-商品异常行为分类模型基于用户特征、商品特征与用户-商品组合特征预测用户$u$在商品$i$的交易过程中的异常概率值$w_{ui}$，即$w_{ui}=f(\vec x_u, \vec x_i, \vec x_{ui})$，其中$\vec x_u=(x_{u,1},...,x_{u,n})$为用户维度相关属性特征，$\vec x_i=(x_{i,1},...,x_{i,m})$为商品维度相关属性特征，$\vec x_{ui}=(x_{ui,1},...,x_{ui,l})$为用户与交易过程中被购买商品的组合特征，$f(\vec x)$为可以相关业务决策模型也可以是通用的XGBoost，GBDT，DNN等分类模型。淘宝反作弊目前会借助于相关深度学习神经网络算法代替部分人工的特征工程，从海量的日志数据中提取抽象化的识别特征挖掘异常交易行为。
+
+异常行为分类模型基于用户与商品维度相关特征计算非正常人群的概率，在正常用户与异常用户群体具有较大区分度时具有较高的准确率，但是模型仅仅考虑用户与商品之间的关系，没有考虑用户以及商品交易网络的全局信息，基于交易图网络关系的迭代算法为模型引入了图关系维度的相关信息，其思想为将预测模型得到的异常概率值$w_{ui}$作为用户$u$对商品$i$的作用，由传播迭代得到用户与商品在全网的异常影响分，如下所示：
+
+\begin{equation}
+\begin{aligned}
+V_I^{(t)} & = W_{UI}^T \cdot V_U^{(t-1)} \\
+V_U^{(t)} & = W_{UI}   \cdot V_I^{(t)} \\
+V_U^{(t)} & = \frac{V_U^{(t)}}{\lVert{V_U^{(t)}}\rVert}, V_I^{(t)} = \frac{V_I^{(t)}}{\lVert{V_I^{(t)}}\rVert}\\
+\end{aligned}
+\end{equation}
+
+其中，$W_{UI,ui}=w_{ui},u \in S_u, i \in S_i$为用户商品行为矩阵，$S_u$为用户集合，$S_i$为商品集合。图传播算法得到的用户$u$的传播分$v_u$与商品$i$传播分$v_i$。传播模型相关收敛性证明如下所示：
+
+\begin{equation}
+\begin{aligned}
+A & = W_{UI}^T \cdot W_{UI} \\
+V_u^{(t)} & = \frac{1}{\prod_{j=0}^{t-1}\lVert AV_u^{(j)} \rVert_1}\lambda_i^t[\alpha_1v_1+\sum_{i=2}^{\lvert U \rvert}(\frac{\lambda_i}{\lambda_1})^t\alpha_iv_i]
+\end{aligned}
+\end{equation}
+
+用户与商品的传播分数能代表用户在交易网络中的异常严重程度，基于$v_i$与$v_u$值可以直接定义用户与商品发生交易的异常分数$s_{ui}$，也可以结合异常分类模型值$f(\vec x)$，训练高阶分类模型$w^{'}_{ui}=f^{'}(f(\vec x), v_u, v_i)$，同时考虑到用户与商品的交易网络边权重$W_{UI}$发生变化，可不断迭代传播算法即采用如下更新公式：
+
+\begin{equation}
+\begin{aligned}
+v_u \leftarrow GraphModel(f(\vec x), v_u, v_i) \\
+v_i \leftarrow GraphModel(f(\vec x), v_u, v_i)
+\end{aligned}
+\end{equation}
+
+当$v_u$与$v_i$值最终收敛后获得较为稳定的用户以及商品维度的全局异常交易分数，基于稳定的异常分数定义$s_{ui}$值，算法伪代码如下所示：
+
+%\section{资金网络传播模型}
 
 
 \begin{thebibliography}{99}

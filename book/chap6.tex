@@ -11,20 +11,74 @@
 \setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
 
 
-在我们的业务场景下，经常会遇到这样的问题，有限的资源下，在尽可能满足多宿主资源
-诉求的前提下最大化资源的利用效率，比方说一下问题： 
+\section{问题框架性描述} 
+在我们的业务场景下，经常会遇到这样的问题，比方说平台希望通过流量资源吸引商家提供
+更多更有价值的货源；大促的时候，希望通过向消费者发放一定数额的红包或者购物券，
+来激发消费者的购物意愿；那么要解决好这类业务需求，我们需要解决以下几个关键问题： 
 \begin{description}
-	\item 广告展示场景：
-	\item 包裹分配：
-	\item 消费者权益发放：
+	\item 平台如何来规划用来调度的资源？这一部分，我们通常需要根据有效收集需求方的
+	大量离线数据，分析其所能满足平台要求的效率情况来估算资源总量。 
+	\item 平台如何来高效的完成离线计划？这一部分，我们通常需要根据需求方在平台上
+	在线服务的实际效率和累积收益与离线计划的差异来动态合理的调整，称之为在线分配。
 \end{description}
 
+大体的问题框架下涉及的符号定义和关系示意图如图所示： 
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{"fig/or.png"}
+	\caption{资源分配图}
+	\label{fig:or}
+\end{figure}	
 
+
+\begin{align}
+max \sum_{s_i \in S, d_j \in D} X_{s_i,d_j} \times G_{s_i,d_j} \\
+s.t. \mbox{       }& \sum_{s_i \in r_{d_j}=\{s_k | \exists <s_k,d_j> \}} X_{s_i,d_j} \times C_{s_i,d_j}  \leq b_{d_j}  \\
+& \sum_{s_i \in \{s_k | \exists <s_k,d_j>\}} X_{s_i,d_j} \times G_{s_i,d_j}  \geq p_{d_j} \\
+& X_{s_i,d_j} \leq 1 \\
+& \sum_{d_k \in \{ d_j | \exists <s_i, d_j> \}} X_{s_i,d_k}=1
+\end{align}
+\end{proof}
+
+\subsection{离线计划问题建模}
+
+平台总资源池，$R$, 资源需求方集合，$D={d_i}$, 对于资源需求方，可能涉及两个限制条件，
+任意一个需求方$d_i$的资源与平台签订的minimum resource volumn，这个是需要平台满足
+需求方的bottom request，还有一个是需求方为每一个资源需要支付基本的cost，而需求方
+能够支付的预算是有限的，
+
+\subsection{在线分配模型}
+
+
+\subsection{应用实例：红包智能化发放算法} 
+
+是$R$；
+平台需求方，$D=\{ d_i \}$, 能够用来向平台换取资源的预算上限表示为$b_i$ $\forall d_i \in D, B(d_i) \leq b_i$, 
+平台将资源 $r_i$ 分配给需求方 $d_j$ 的概率是 $x_{i,j}$ 且平台从此次分配中获取的收益为 $c_{i,j}$. 
+则整个问题可以建模为： 
 
 
 
 \section{购物券/红包发放技术} 
 	@达卿，@云志
+
+\section{附录} 
+我们先思考梯度下降（GD）这种一阶方法：这里一个问题是步长控制问题。这时牛顿法这些二阶方法出现了：将函数在局部极值点附近进行二阶Taylor展开近似可得：其中，为梯度向量，为Hessian矩阵。对上式求导并置0，以求在二阶近似原函数的情况下快速求出函数极值点，可解得：结合两个更新公式可知，Hessian矩阵起到了控制步长的作用。简单粗暴点的说，Hessian矩阵的特征值控制了更新步长。详细的，我们知道对实对称矩阵而言：其中，是单位特征向量矩阵，是对应特征值对角矩阵。故：可以看出，这里控制（每个特征方向）步长的，有两个东西：原来的一阶梯度和对应的Hessian矩阵特征值。所以很多用gradient descend算法进行分析时，经常会说Hessian矩阵特征值这东西，极端的则表示这种，若特征值间差异巨大，则有些方向学习缓慢，有些不断波动，（二维情况就是你经常看到的那种蛇形曲线...）这些现象也侧面说明了步长这东西
+
+
+\section{结束语} 
+What is a good example of combining machine learning with operation research to solve a major problem? 
+
+
+Controlling incoming and outgoing traffic in an airport is a very good Operations Research problem. This can be coupled with say, machine learning algorithm for weather prediction to make best use of the facilities available in an airport. The OR algorithm would solve the existing problem, while the ML idea would keep track of unexpected emergency landings by predicting based on suitable metrics.
+
+
+Internet congestion control:
+
+Sequencing problems are generally looked at as Operations Research areas. One of the first examples that are cited as an application of Operations Research is assembly line scheduling. If we look at internet congestion control as a similar model, we can apply an Operations Research based sequencing model coupled with ML algorithms for predicting sudden rise in traffic, virality etc.
+
+Like I mentioned in the beginning, any problem under any domain can be modeled using Machine Learning and Operations research concepts. The efficiency of the same might be debatable.
+
 
 
 
