@@ -1,6 +1,7 @@
+\chapter{ 其他相关技术 }
 
-\chapter{新技术视角下的搜索智能化思考}
 \thispagestyle{empty}
+
 
 \setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
 \noindent\shadowbox{
@@ -9,21 +10,316 @@
 
 \end{tcolorbox}}
 \setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
+\section{向量到向量快速计算}
+\subsection{背景}
+如何在高维向量空间搜索最近邻是一个在很多应用领域（视觉，个性化推荐，搜索等）都可能会面临到的难题，同时要达到既高效又准确的最近邻检索就更加困难，我们从淘宝搜索实际的问题出发，介绍近似最近邻检索算法在淘宝搜索的应用以及我们算法的优势，并期望能做到通用向量化召回的程度应用于其他需要的场景。
 
-\section{多智能体学习} 
+\par 在淘宝搜索场景下，召回是整个搜索流程中非常重要的一环，召回的结果直接决定了最终排序可优化的空间，传统的召回方法使用倒排索引的方式达到高效检索的结果，不过传统的倒排索引方式存在一定的局限性。
+\par 在使用Query关键词召回的场景下，传统的倒排索引方式对于中长尾query的召回表现存在很大的欠缺，比如用户搜索”红色 修身  日式 开衫 连衣裙”，就只能召回商品标题中包含这些关键词的商品，导致召回的结果集过少，同时有部分优质商品款式颜色符合用户需求却没有办法被召回，自然也没有机会参与最终的排序不能展示给用户选择；在使用用户信息进行个性化召回的场景下，使用传统的倒排索引方式存在一定的局限，只能通过商品打标的方式或者直接使用i2i种子商品进行召回，前者粒度太粗，准确性存在一定问题，而后者虽然准确度高但是覆盖量较低，缺少较好的泛化的能力。
+\par 随着深度学习在搜索推荐场景的大规模应用，向量化的方法在query相关性，用户个性化等各个精排阶段的优化都取得了一定的成功，我们也希望将向量化的方式应用于召回阶段，从最源头解决上文提到的一系列的问题。然而，基于向量化的召回由于特征向量是稠密的，我们无法用传统的倒排索引取得良好的检索效果。与此同时，暴力检索的时间代价是十分巨大的。于是，我们转而追求近似解。如果可以通过牺牲少许精度来换取极高的查询速度，那么算法就可以在实际环境中得以应用。这就是近似最近邻检索问题。
+\subsection{传统的近似最近邻检索算法}
+以往数十年，近似最近邻检索领域不断有新的算法被提出，以适应大数据时代爆炸式增长的数据规模。传统的近似最近邻检索算法包括三大类：基于树结构的近似最近邻检索、基于哈希的近似最近邻检索和基于量化的近似最近邻检索。
+\subsubsection{基于树结构的近似最近邻检索}
+基于树结构的近似最近邻检索算法包括KD-tree、KMeans-tree、VP-tree、Ball-tree等等，其共同特点在于利用某种策略对空间进行逐层切分，直到树的叶子节点只覆盖空间的一个小的局部。而其查询方法也通常是深度优先检索或其改进版。
+\subsubsection{基于哈希的近似最近邻检索}
+基于哈希的近似最近邻检索算法包括最早的局部敏感哈希（Locality Sensitive Hashing）、谱哈希（Spectral Hashing）、球哈希（Sphere Hashing）、锚点图哈希（Anchor Graph Hashing）等等。他么的共同特征则是通过超平面或者曲面，将空间进行直接切分，并对切分后得到的各个细小区域进行二进制编码，通过构建哈希表来加速查询。其中，超平面或者曲面可以通过学习或者非学习的方式得到，其表示我们称之为哈希函数。
+\subsubsection{基于量化的近似最近邻检索}
+基于量化的近似最近邻检索算法包括矢量量化（Vector Quantization）、积量化（Product Quantization）及其改进的最优积量化（Optimised Product Quantization）、复合积量化（Composite Quantization）等等。由于数据规模的爆炸增长，VQ已经退出历史舞台，基于积量化的方法更具实用性。积量化的主要思想是，将d维空间向量v等分为m份，每份d／m维，在每一份子向量所张成的子空间内，对数据进行KMeans聚类，并将每一个子向量用最近的聚类中心表示，那么向量v就会被重新表示为不同的子空间聚类中心串接成的新的d维向量v’。其目的在于为向量v找一个尽可能精确的近似表示v’。由于子空间的聚类中心会被记录下来，可以用二进制将其编码作为索引，那么v就可以表示为一组二进制串，如此可以大大减少数据存储空间。在检索阶段，原始数据被抛弃，所有的距离计算在新的近似表示间进行，那么近似表示之间的距离运算就可以用子空间聚类中心的距离计算的加和代替，而子空间聚类中心之间的距离可以提前算好存储，复杂的距离运算就变成了简单的加和运算。为了进一步加快检索，积量化方法往往会和倒排索引结合起来。Facebook在2017年3月开源的Faiss很好地实现了这一类方法，并将其实现到了GPU端，以便于十亿级别数据的大规模检索。
+\subsubsection{传统近似最近邻算法的局限性}
+传统方法包含了一种致命的缺陷使其性能存在无法优化额瓶颈，而这一缺陷来自于空间切分。我们知道，高维空间内的多面体内，任意一点落在边缘和角落的概率远远大于落在中心区域的概率。切分空间的超平面常常会贯穿近邻之间，而且维度越高情况越严重。对于传统方法，在检索完当前空间后，为了提高精度，需要检索相邻空间，维度越高，需要检索的相邻空间数目越多，性能损失越严重。
+\subsection{基于图结构的近似最近邻检索算法}
+近几年，近似最近邻检索领域出现了新的一派算法：基于图结构的近似最近邻检索。这类算法的索引为将高维空间中各点进行某种连接的有向图或无向图。最早提出的算法，GNNS算法是基于机器学习界常用的K近邻图的。该图为有向图，对于每个数据点，只存储距离该点最近的K个节点，这K条边为该点的出边。
+GNNS算法的思想十分简单，就是近邻的近邻也很可能是近邻。如下图所示，从随机选择的初始点开始，通过检查邻居里距离query更近的点，把该点当作下一次迭代需要检查邻居的点，如此不断迭代，通过邻居的邻居的邻居，我们会逐渐逼近query。最终，将query附近的近邻点作为结果返回。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg0.png"}
+	\caption{}
+	\label{fig:nsg0}
+\end{figure}
+基于图的近似最近邻检索算法的在线查询过程如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg1.png"}
+	\caption{}
+	\label{fig:nsg1}
+\end{figure}
+要实现基于图的近似最近邻检索，我们首先需要离线构建一个K近邻图，而构建精确K近邻图的时间代价也是很高的，时间复杂度约为 $O(KN^2d)$ 。因而我们也寻求近似解，目前NN-descent算法可以高效快速的建立高精度的KNN-graph。
+同时，对于近似最近邻检索问题，KNN-graph并非最优图结构。根据GNNS算法性质，在KNN-graph上进行检索，每次迭代需要检测K个点，选出离query最近的点。然而，在从初始点向query靠近的过程中，我们往往只需要寻求一个大致的方向。所以KNN-graph中的很多边是冗余的，我们期望将这些冗余边进行修剪。
+在一些最近的工作中（FANNG、HNSW），occlusion rule被提出用于修剪冗余的边。其思路如下图：在三角形$P_1P_2P_3$中，$P_1P_3$是最长边，因而会被剪除。它希望保证在点$P_1P_3$之间，仍保留一条可达路径，并且尽可能剪除长边保留短边。在经过occlusion rule修剪的图内，还潜藏另一个特殊属性，即任意两边夹角一定大于60度。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg2.png"}
+	\caption{}
+	\label{fig:nsg2}
+\end{figure}
+但是在HNSW和FANNG算法中，他们的索引构建是从一个随意链接的图结构开始，进行贪婪式地构建，图结构逐渐收敛至尽可能将近邻相连并满足occlusion rule。问题是，FANNG算法的收敛性较差，容易陷入局部最优。在其图结构上进行检索的效率也较低。HNSW为了弥补单层图的劣势，采用多层图结构，并且每层图对数据库点的覆盖面逐渐收缩呈金字塔结构。而检索则从顶向下进行检索。在之前的benchmark中，HNSW取得了最高效的检索性能，但其索引结构由于多层图结构而变得十分巨大。
+我们观察到，从随机连接图结构出发构建索引的算法，都是出于启发式思路，容易陷入局部最优，而并不能够保证最近邻尽可能互连。于是，我们希望从KNN-graph出发来构建索引，同时满足occlusion rule
+优化后索引构建算法如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg3.png"}
+	\caption{}
+	\label{fig:nsg3}
+\end{figure}
 
-\section{强化迁移学习} 
+\subsection{离线实验对比与线上应用}
+\subsubsection{离线实验}
+由于近似最近邻检索的表现在不同的数据集合上差异较大，在我们的离线实验中，我们对比了多组近似最近邻检索问题使用的标准数据集，同时也使用了主搜索场景实际应用的数据集进行对比，分别从最近邻检索的准确度，检索速度，离线索引构建效率以及内存使用多个方面进行对比
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg4.png"}
+	\caption{}
+	\label{fig:nsg4}
+\end{figure}
 
-\section{终生学习} 
+实验结果如上图所示，分别对应4个不同的公共数据集，横轴表示召回的top100近邻的准确度，纵轴表示每秒能处理的查询数，从对比的实验结果中可以看出，在所有对比的公共数据集上，基于图的近似最近邻检索算法在性能和效果上都显著优于传统的方法，同时我们的nsg算法在所有测试集上都能取得一个最优的效果。
+此外，由于基于图的近似最近邻检索方法需要离线建立近邻图，因此，除了对比各个方法的近似最近邻检索的速度和效果，我们也对比了各个算法在离线阶段的性能。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg5.png"}
+	\caption{}
+	\label{fig:nsg5}
+\end{figure}
+如上图所示，NSG算法在所有数据集上的内存消耗都小于其他算法，在离线build耗时方面，也在部分数据集上显著优于其他方法。
+除了在公共数据集上实验，我们也使用我们实际应用的数据进行了对应的实验，
 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg6.png"}
+	\caption{}
+	\label{fig:nsg6}
+\end{figure}
+
+从实验结果可以看出，在45M的数据集上，同样达到98\%的准确度，NSG算法的在线查询的latency在1ms，而对比的QB的方法需要10ms，差异非常明显，同时对比10M和45M的数据集，可以看出数据量越大，QB达到较优结果所需要的耗时相比NSG要增长的更多。
+\subsubsection{线上应用}
+NSG算法目前在主搜索已经应用于多个应用场景，也分别取得了不错的效果
+\begin{itemize}
+\item 个性化召回
+为了解决上文提到的传统个性化召回使用传统打标方式或直接根据i2i商品id来召回商品的局限性，我们在召回阶段分别对用户和商品进行建模，将用户和商品均使用稠密向量来表示，并通过检索距离用户向量距离最近的K个商品作为个性化召回的结果，具体实现详见( https://www.atatech.org/articles/95741 )，个性化向量化召回的功能在主搜索日常线上分桶测试中能在整桶成交金额上相比基准桶提升2-3\%。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg7.png"}
+	\caption{}
+	\label{fig:nsg7}
+\end{figure}
+
+\item 长尾query向量化召回
+为了解决长尾query召回商品结果集过小，很多相关商品无法被关键词召回的问题，将query和商品也分别建模，表示为向量，商品建模时额外使用商品的图片的信息(具体见
+ https://www.atatech.org/articles/95730 ),并通过计算query向量与商品向量的距离，召回离当前query向量距离最近的K个商品，下图给出了扩召回之后的一些例子：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/nsg8.png"}
+	\caption{}
+	\label{fig:nsg8}
+\end{figure}
+
+可以看到通过向量召回的商品，虽然标题上没有包含用户query中的部分关键词，但是召回的商品在款式颜色属性等方面是完全满足用户的需求，长尾query扩召回功能线上分桶测试在覆盖query下能达到10\%+的成交量的提升，说明扩召回的结果给了用户更多更好的选择。
+\item 凑单
+凑单整体业务算法介绍详见: https://www.atatech.org/articles/94215  
+除了在搜索场景的应用，我们也尝试将nsg向量化召回的算法应用于搜索之外的场景来验证其有效性，nsg向量化召回在双十二期间上线至凑单业务进行测试，测试桶的ipv和成交笔数都能达到很明显的提升，ipv提升1.8\%，成交笔数提升7.9\%。这里也很感谢清灵在凑单场景对我们的测试的支持~
+\end{itemize}
+
+
+
+\subsection{参考文献}
+下面列出文中提到的各个方法对应的原文和链接
+\begin{itemize}
+\item HNSW
+https://arxiv.org/abs/1603.09320
+\item DPG
+https://arxiv.org/abs/1610.02455
+\item Efanna
+https://arxiv.org/abs/1609.07228
+\item FANNG:Fast Approximate Nearest Neighbour Graphs
+https://www.cv-foundation.org/openaccess/content\_cvpr\_2016/html/Harwood\_FANNG\_Fast\_Approximate\_CVPR\_2016\_paper.html
+\item KGraph
+Efficient k-nearest neighbor graph construction for generic similarity measures
+https://dl.acm.org/citation.cfm?id=1963487
+\item Faiss
+https://arxiv.org/abs/1702.08734
+\item FALCONN
+http://papers.nips.cc/paper/5893-practical-and-optimal-lsh-for-angular-distance
+https://github.com/FALCONN-LIB/FALCONN
+\item Annoy
+https://github.com/spotify/annoy
+\item Flann
+Fast Approximate Nearest Neighbors with Automatic Algorithm Configuration
+https://lear.inrialpes.fr/\~douze/enseignement/2014-2015/presentation\_papers/muja\_flann.pdf
+https://github.com/mariusmuja/flann
+\end{itemize}
+
+\section{模型量化压缩与Inference加速}
+\subsection{技术背景}
+
+深度学习最近在object recognition， speech recognition, machine translation, games,  image generation等各个领域突飞猛进，都取得了state of the art的效果。越来越多的学术界以及工业界的研究人员将深度学习应用到传统的领域， 推动这些领域的变革，以及整个AI领域的发展。相对于传统的浅层学习， 深度学习模型复杂， 参数多，训练和Inference的计算量大。以AlexNet为例：
+\begin{itemize}
+\item[*] 网络深度达到8层
+\item[*] 参数规模超过 60M
+\item[*] 一张图片的Inference需要约1G FLOPS
+\end{itemize} 
+Object recognition中的其他重要的模型：VGG, GoogleNet , ResNet等都比AlexNet复杂， 参数规模有增减， 但计算量都增加了不少。比如100层的ResNet一张图片的Inference计算量超过了10G FLOPS。
+
+这些问题给深度学习在服务器端、移动端以及其他嵌入式设备的应用带来挑战，主要集中在两个层面
+\begin{itemize}
+\item[*] 参数规模大：影响模型的部署和更新，同时会降低Cache命中率，增加Inference时间
+\item[*] Inference的latency过高:  计算量多大， AlexNet上一张图片的Inference在CPU上需要上百毫秒
+\end{itemize}
+
+这些都限制深度学习的发展。针对上述问题，一方面可以通过硬件来加速：Nvidia不停的发布加速深度学习训练、Inference的GPU，Google也推出了TPU等，以及很对团队研究通过使用FPGA来加速。另一方面， 可以通过
+ 结合硬件结构， 设计针对深度学习模型的量化压缩、Inference加速算法。主要有：
+\begin{itemize}
+\item[*]  parameter pruning  \& sharing
+\item[*]  Low-rank factorization
+\item[*]  Transfered/compact convolutional filters
+\item[*]  Knowledge distillation
+\end{itemize}
+在阿里巴巴购物搜索引擎中， 深度学习模型得到了大量的应用， 在业务上取得了非常不错的效果。为了能在线上部署复杂的深度学习模型，降低latency， 我们做了大量的尝试：一方面优化GPU调用以及设计FPGA硬件来加速Inference，同时也在设计压缩、量化算法来加速Inference。这里我们主要介绍我们在模型量化压缩及Inference加速算法上的工作。
+
+\subsection{模型量化压缩及Inference加速算法}
+深度学习模型的量化压缩算法是目前的一个研究热点，每年在NIPS， ICLR等计算机顶级会议上都有很多相关的文章, 也获得了学术界和工业界的认可，比如Song Han的Deep Compression算法获得了2016年ICLR的“Best Paper Award"。在阿里巴巴购物搜索中， 我们训练了大量的深度学习模型中， 运行在阿里巴巴的服务器集群上， 使用CPU, GPU计算。由于GPU成本较高以及FPGA研发周期长， 而服务器集群有大量的CPU，因此我们设计了一套基于CPU的深度学习模型量化压缩与Inference加速算法AQN： Alternating multi-bit Quantzation Network， 并在搜索的相关业务上上线， 取得了非常不错的效果。 \\
+通用矩阵乘法(GEMM)是深度神经网络(DNN)的核心(https://petewarden.com/2015/04/20/why-gemm-is-at-the-heart-of-deep-learning/)，  也是深度学习模型中参数最多， Inference计算最耗时的地方。大多数的深度学习框架中的卷积计算(CNN)也是使用GEMM来实现的， 以及循环神经网络(RNN)中包含了大量的GEMM计算。因此优化GEMM是最关键的一步。为了简单起见， 我们将GEMM简化为  $C = MatMul(A, B)$ ，其中$MatMul$是标准矩阵乘法。通常而言， $C$为深度学习网络中某个节点的输出， $A$为节点的输入， $B$为节点的参数， 模型的一部分。 \\
+为了优化GEMM，基于综合比较，我们选择了基于binary的量化算法， 并在此基础上提出了新的量化算法（AQN）。Courbariaux M等首先提出了BinaryConnect， 将GEMM的每个参数以及每个输入都量化成1个bit表示的$\{-1, 1\}$的算法，大幅压缩模型大小，但模型精度降低了很多。Mohammad Rastegari等在此基础上提出了XNOR Net，模型大小不怎么变化， 但相对BinaryConnect模型精度大幅提升。 为了介绍AQN， 我们首先介绍XNOR Net。对于矩阵 $A \in  \Re^{m \times n} $ 的binary 量化过程为：
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.9\linewidth]{"fig/AQN_XNOR_IMG1.png"}
+    \caption{XNOR量化}
+    \label{fig:aqn_xnor_img1}
+\end{figure}
+
+可以表示为 ：$$A \approx \alpha \times A_b$$
+其中:$$\alpha \in \Re \ and \ \alpha \geq 0$$ $$A_b \in \{-1, +1\}^{m \times n}$$
+由于$A_b$中所有的element都是$\{+1, -1\}$， 因此存储该矩阵的时候可以用一个bit来表示矩阵中的一个element，当该bit为0时元素值为-1， 该bit为1时表示元素值为1。相比较于全精度(float)， 参数的压缩比例约为32倍。参数$\alpha$以及$A_b$的推导过程为：
+对于矩阵量化的误差为:$$ error = \left\lVert A - \alpha A_b \right\rVert ^ 2 $$
+最小化$error$可以得到：
+$$\alpha = \sum abs(A_{ij}) / (m*n) $$ $$A_b = sign(A)$$
+我们定义二值化的op为:$$\alpha, A_b=binarize(A)$$
+将binary network应用到GEMM中。
+ $$\alpha_A, A_b = binarize(A)$$
+ $$\alpha_B, B_b = binarize(B)$$
+$$GEMM(A,B) \approx \alpha_A \alpha_B B\_GEMM(A_b, B_b)$$
+$B\_GEMM$表示二值矩阵的乘法。因此问题转化为二值矩阵的乘法。 针对二值矩阵的乘法高效计算可以采用XNOR+POPCNT算法(POPCNT统计值为1的bit数)。首先假设$A_b$中的每个元素已经通过bit存储 ，那么矩阵乘法可以表示为
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.9\linewidth]{"fig/AQN_XNOR_IMG2.png"}
+    \caption{$B\_GEMM$算法示意图}
+    \label{fig:AQN_XNOR_IMG2}
+\end{figure}
+$$C_{ij}=K-2POPCNT(XNOR(A_{i,}, B_{,j})) $$
+
+
+在$binarize$ op中， 参数$\alpha = \sum(A_{ij})/ (m * n)$， 是整个矩阵元素绝对值的平均值。一个优化的方法可以考虑根据原始矩阵$A$的每行计算一个系数$\alpha$， 或者每行中每$X$个连续的元素计算一个$\alpha$。 当$X=1$时， 退化成没有量化。选择适当的$X$不会显著增加计算量，但能提升模型的性能。为了计算方便， 一般$X$是64的倍数。
+
+
+使用1个bit来表示一个参数还是会引入了较大的误差。为了降低这些误差， 可以引入multi-bit XNOR。通过每次增加一个bit，量化上次的残差，可以降低最终的误差。假如 矩阵A通过$x$个bit量化， 那么
+$$\alpha_{A1}, A_{b1} = binarize(A)$$ $$\alpha_{A2}, A_{b2} = binarize(A-\alpha_{A1}A_{b1})$$ $$\cdot\cdot\cdot$$ 
+因此multi-bit量化可以定义为:
+$$\left[\alpha_{A1},\cdots,\alpha_{Ax}\right],\left[A_{b1},\cdots,A_{bx}\right] = multi-bit(A, x)$$
+基于multi-bit的MatMul可以表示为：($A$用$x$个bit量化， $B$用$y$个bit量化)
+$$GEMM(A,B) \approx \sum_{i=1}^{x}\sum_{j=1}^{y}\alpha_{Ai}\alpha_{Bi}B\_GEMM(A_{bi}, B_{bj})$$
+
+上面的多个bit方案， 只能保证每增加一个bit的时候， 对当前的残差的量化最优的，但是不能保证整个过程是一个最优或是次优的量化方案。通过传统的数值方法不能得到最优解， 因为目标函数不是关于$\{\alpha_i\},\{A_{bi}\}$的凸函数。因此我们设计了一种交替迭代的量化方案：AQN: Alternating multi-bit Quantzation Network。考虑这样一个事实，对于$ error = \left\| A - \sum_{i=1}^{n} \alpha_i A_{b_i} \right\|^2$, 当给定$\{W_{b_i}\}$， $\{\alpha_i\}$是有解析解的. 令$$A_b^{\ast}=\left[vec(A_{b_1})^T, vec(A_{b_2})^T,...,vec(A_{b_n})^T\right]$$ 其中vec为将矩阵展开成向量操作。矩阵$A_b^{\ast} $的shape为$mn \times M_A$。那么可以得出 $$\left[\alpha_{A1}, ..., \alpha_{An}\right] = (({A^{\ast}_b}^T {A^{\ast}_b)}^{-1}{A_b^{\ast}}^T A)^T$$。 同理， 当$\{\alpha_i\}$给定的时候， $\{A_{b_i}\}$有全局最优解。因此我们采用交替迭代的方法， 迭代求解的算法为:
+\begin{algorithm}  
+\caption{AQN}  
+\label{alg:AQN}  
+\begin{algorithmic}  
+\STATE {inputs: matrix ${A}$, iteration times $n$ \\ get $\{\alpha_i, A_{b_i}\}$ with multi-bit XNOR method}   
+\REPEAT
+\STATE {$\left[\alpha_{A1}, ..., \alpha_{An}\right] = (({A^{\ast}_b}^T {A^{\ast}_b)}^{-1}{A_b^{\ast}}^T A)^T$\\
+   $\{A_{bi}\} = \mathop{\arg\min}_{\{A_{bi}\}} \left\| {A - \sum_{i}^{m}{\alpha_{i} A_{bi}}}\right\|^2 $} \\ n = n-1
+\UNTIL{n>0}  
+\STATE {return $\{\alpha_i\}, \{A_{b_i}\}$}
+\end{algorithmic}  
+\end{algorithm} 
+
+
+\subsection{实现}
+我们在X86-64指令集上基于Caffe框架实现了AQN算法，包含训练和Inference部分， 并且在spell-check这样一个task上上线。基于Caffe框架的一个重要原因是该框架简单， 代码量不大。由于Caffe是一个基于C++的DL框架， 通过简单的封装可以部署在线上。
+目前有几个开源的BNN算法lib， 但他们对intel intrinsic的应用并不好，参考这些开源代码，我们实现了AQN的training和inference模块。training和inference是分开， 是因为training和inference在我们的场景中是不一样的。 training部分我们采用单机GPU训练， inference主要是在搜索的QP上，基于Intel broadwell 架构的CPU。
+
+在training的过程中， 主要是对Caffe中的InnerProductLayer的input和$W$分别做基于AQN的approximation，然后再调用GEMM计算矩阵乘法。bp的时候分别采用量化后的结果计算$W_q$以及向下传的residual。其中一个重要的细节就是clip。把$W$ clip到一个$\left[-x, x\right]$区间相当于增加了正则， 通常$x=1$。
+在approximation之后再做GEMM，会增加training的计算量， 但由于training主要是离线的， 因此这些overhead还是可以接受的。 我们在GPU上实现了AQN的training部分， 和原始的InnerProduct相比， training的时间没有增加多少， 下面训练过程中的forward和backward流程
+
+\begin{figure}[!h]
+  \centering 
+    \includegraphics[scale=0.4]{"fig/AQN_XNOR_IMG3.png"}
+  \caption{训练流程} 
+\end{figure}
+
+目前有一些基于binary量化的$B\_GEMM$实现，参考这些实现，基于avx2指令集， 我们在caffe中实现的AQN的Inference代码，
+ \begin{itemize}
+\item[*]  初始化的时候， 将$W$通过AQN 量化得到$\{\alpha_{i}\}$以及$\{W_{bi}\}$
+\item[*]  forward的时候， 对input量化， 得到对应的量化结果, 利用$B\_GEMM$(XOR+POPCNT)计算二值矩阵的乘法
+\end{itemize}
+可以参考下图：
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.5]{"fig/AQN_XNOR_IMG5.png"}
+    \caption{inference流程}
+    \label{fig:AQN_XNOR_IMG5}
+\end{figure}
+
+\subsection{实验}
+我们在搜索的query纠错、以及一些开源的数据集合上对比了由于量化带来的模型精度影响， 以及对GEMM速度的提升。query纠错是一个基于LSMT的深度学习模型。LSTM是其中计算最主要的计算单元，其中包含了大量的GEMM算子。我们对比了使用多bit的AQN后对模型精度的影响以及LSTM单元的加速情况：
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.5]{"fig/AQN_XNOR_IMG6.png"}
+    \caption{query纠错实验}
+    \label{fig:AQN_XNOR_IMG6}
+\end{figure}
+
+在上面的实验中， 在$input$和$W$各使用2个bit量化的时候， 模型的accuracy有部分下降， 但LSTM单元的加速可以提升3倍，这可以确保模型能在线部署。同时我们在一个已经train好的LSTM模型上使用AQN进行量化， 我们分析了量化后的模型和原始模型之间数值上的RMSE， 并和目前最新的方法做了对比 
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.5]{"fig/AQN_XNOR_IMG_TRAINED.png"}
+    \caption{量化数值影响}
+    \label{fig:AQN_XNOR_IMG_TRAINED}
+\end{figure} \\
+对上面的对比可以看出， 经过AQN量化后的模型， 在数值上和原模型最接近， 大幅降低了数值上的误差。为了判断量化最终对模型性能的影响， 我们在开源的数据集Peen Tree Bank (PTB)上，在training的过程中， 结合AQN进行训练， 并最终和其他目前最新的方法对比了在测试数据集上的模型性能\\
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.5]{"fig/AQN_XNOR_IMG_TEST_RESULT.png"}
+    \caption{模型性能对比}
+    \label{fig:AQN_XNOR_IMG_TEST_RESULT}
+\end{figure}
+在上面的实现对比中， AQN对模型性能影响最小，效果比其他对比的方法好。在有些时候甚至超过了全精度的模型， 因为量化的过程相当于引入了模型的正则， 降低了噪音数据对模型的影响。\\
+对了验证AQN的inference的计算性能，我们和Intel的科学计算库MKL对比了一下矩阵乘法的latency。统计了在基于Intel的broadwell架构的CPU上， 采用单线程计算了在不同场景下的latency
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.5]{"fig/AQN_XNOR_IMG_GEMM.png"}
+    \caption{inference计算性能对比}
+    \label{fig:AQN_XNOR_IMG_GEMM}
+\end{figure}
+
+上面是对M比较小的时候的结果， 因为在实际的场景中， 需要inference的数据只有一条， 比如：用户输入的query等。在AQN实现的过程中， 我们发现目前的Intel CPU指令集对POPCNT支持的不是很好， 但后下一代的CPU体系架构中， 相关的指令集得到了优化。相信在后面的CPU体系中， 基于 binary量化的相关算法， 在Inference上的加速能更上一个台阶。同时，很多研究将基于binary量化的模型应用到GPU，FPGA上， 也取得了非常不错的效果。\\
+我们还考察了基于ternary的算法。ternary的一个想法是， 矩阵 $$A \approx \alpha A_t$$ 其中 $$A_t \in \{-1, 0, 1\}^{m \times n}$$ 基于XOR和POPCNT的ternary, binary矩阵运算需要对ternary部分引入mask，这样可以在保持模型性能的同时， 降低对POPCNT的使用。
 
 
 \begin{thebibliography}{99}
 \addcontentsline{toc}{chapter}{\protect\numberline{}{\hspace{-1.5em}参考文献}}
 \markboth{参考文献}{参考文献}
-\bibitem{1} C. Burges, T. Shaked, etc.., Learning to rank 
-using gradient descent. In Proceedings of the 22nd international 
-conference on machine learning, ACM
+\bibitem{1} Pete Warden. Why GEMM is at the heart of deep learning
+\bibitem{2} Yu Cheng, Duo Wang, Pan Zhou and Tao Zhang. A Survey of Model Compression and Acceleration for Deep Neural Networks
+\bibitem{3} Mohammad Rastegari, Vicente Ordonez, Joseph Redmon and  Ali Farhadi. XNOR-Net: ImageNet Classification Using Binary Convolutional Neural Networks
+\bibitem{4} Zefan Li, Bingbing Ni, Wenjun Zhang, Xiaokang Yang and  Wen Gao. Performance Guaranteed Network Acceleration via High-Order Residual Quantization
+\bibitem{5} Matthieu Courbariaux, Itay Hubara, Daniel Soudry, Ran El-Yaniv and Yoshua Bengio. Binarized Neural Networks: Training Deep Neural Networks with Weights and Activations Constrained to +1 or -1
+\bibitem{6} Fengfu Li, Bo Zhang, Bin Liu. Ternary Weight Networks
+\bibitem{7} Abhisek Kundu, Kunal Banerjee, Naveen Mellempudi, Dheevatsa Mudigere, Dipankar Das, Bharat Kaul, Pradeep Dubey. Ternary Residual Networks
+\bibitem{8} Hande Alemdar, Vincent Leroy, Adrien Prost-Boucle, Frédéric Pétrot. Ternary Neural Networks for Resource-Efficient AI Applications
+\bibitem{9} Naveen Mellempudi, Abhisek Kundu, Dheevatsa Mudigere, Dipankar Das, Bharat Kaul, Pradeep Dubey. Ternary Neural Networks with Fine-Grained Quantization
+\bibitem{10} Yiwen Guo, Anbang Yao, Hao Zhao, Yurong Chen. Network Sketching: Exploiting Binary Structure in Deep CNNs
+\bibitem{11} Haojin Yang, Martin Fritzsche, Christian Bartz, Christoph Meinel. BMXNet: An Open-Source Binary Neural Network Implementation Based on MXNet
+\bibitem{12} https://en.wikipedia.org/wiki/AVX-512
+\bibitem{13} Eriko Nurvitadhi, David Sheffield, Jaewoong Sim, Asit Mishra, Ganesh Venkatesh and Debbie Marr Accelerator Architecture Lab, Intel Corporation. Accelerating Binarized Neural Networks:
+Comparison of FPGA, CPU, GPU, and ASIC
+\bibitem{14}Mitsuru Ambai, Takuya Matsumoto, Takayoshi Yamashita, Hironobu Fujiyoshi. Ternary Weight Decomposition and Binary Activation Encoding for Fast and Compact Neural Network
+
+
+
+
+
 \end{thebibliography}
+
 
  

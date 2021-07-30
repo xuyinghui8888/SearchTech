@@ -1,5 +1,5 @@
 
-\chapter{搜索词背后的技术}
+\chapter{搜索词相关性的技术}
 \thispagestyle{empty}
 
 \setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
@@ -12,22 +12,1391 @@
 
 淘宝的平台上有数十亿的商品，消费者在平台上想要快速找到自己想买的商品，只能在淘宝搜索输入查询词，也就是我们通常说的query，来表达购物的需求。如果能够理解用户Query背后的购物意图，就能够帮助搜索引擎自动将符合用户意图的商品返回给用户，提升结果的准确率，从而提高用户在平台上的购物满意度和体验。
 
-\section{底纹推荐技术} 
-	底纹推荐技术, 实际上是实现一个从用户到query的映射模型：$user \to query$
-
-\section{查询词改写扩展技术}
-	查询词改写扩展技术, 转换为技术语言，是一个完成从原始query到新query的映射模型：$query \to query^*$
-\section{查询词意图预测技术}
-查询词意图预测技术, 意图可以类目：$query \to category$
 
 
-\section{查询词图像化映射技术} 
+\section{类目预测}
+\subsection{Query类目预测与分析}
+用户搜索意图的理解在搜索排序体系下有着重要的作用。要理解用户的意图，一部分可以通过用户的关键词文本来理解语义上的意图；另一方面可以通过用户的行为积累来获得用户的潜在需求意图，即基于用户行为的意图预测 。
+\par 文本意图中的类目意图预测是淘宝搜索相关性中的重要组成部分。商品在关键词索引召回之后，在第一轮海选粗排阶段通过类目相关性，可以优先选择更相关类目的商品进入第二轮精排中。一方面保证排序的效率，使得排序在类目相关的商品集合上进行；另一方面从最上层保证类目的相关性，保证用户的体验效果。
+\par Query类目预测主要目标是，分析用户的搜索Query和哪些类目的意图更相关。Query类目预测不同于商品类目预测和一般的文本分类问题，主要是因为Query带有的描述信息比较少，而且往往意图比较分散，也就是对于一个用户搜索的Query会有多个可能相关的类目，对预测意图的难度会比较大。例如上图用户搜索“电脑显示器”，其中转接线就属于与用户意图不相关的类目商品。 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/lm0.png"}
+	\caption{}
+	\label{fig:lm0}
+\end{figure}
+
+\subsection{线上模型实现}
+目前线上的版本模型主要包括点击模型和先验模型两部分。
+\subsubsection{点击模型}
+用户对于搜索的query的点击商品行为，很大程度上反应出类目的相关，即点击越多的类目，越有可能和query的意图在类目维度更相关。
+\par 所以点击模型主要依赖于搜索词的历史行为，也就是Query在各个召回商品的类目下的历史一段时间的点击行为做了统计，并且根据各个类目的点击分配比例，通过分数阈值的规则划分类目相关与否的档位。 
+\subsubsection{先验模型（新）}
+先验模型主要为了解决点击模型带来的马太效应问题，相似类目的点击行为差异和新发类目的商品冷启动问题。
+\par 目前依赖的方法主要是是通过Query在类目下的召回结果数以及在类目下商品的占比等因素，相当于商品体量的一个估计。两个模型之后进行融合，通过规则的方式确定相关和不相关的档位阈值。
+\subsubsection{在线实现}
+每天通过搜索日志中选择一段时间内的中高频Query，通过上述统计规则方法得到Query的类目预测结果，并存储为离线词典。（在线访问时，主要依赖于这份基础数据词典。对于不在词典中的偏长尾的Query，则通过线上丢词的长尾类目预测逻辑进行识别，将在另一篇文章中介绍~）
+\subsection{存在的问题与分析}
+基于这种融合模型的方法，点击模型带来更准确的类目相关度量，而先验模型对于行为稀疏的类目可以得到召回上的提升，使得线上的相关性效果得到一定的保障。但是在应用中还是存在着以下几个问题：
+\par 首先是点击模型，统计历史的类目点击数据对于曝光较多的类目会占优势，对于类目商品体量不均的情况，会使得点击分数更偏向体量大的类目；而且如果存在类目新发商品或新增类目的情况，即使点击数据在近日内有增量，但是也很难在统计值上追上已有类目，所以需要一个根据增量预估整体的方法。其次，在先验模型中的一个重要假设，就是召回的商品越多，越可能是相关的类目，其实并没有考虑语义上是否能保证相关，例如：“茶几”这个Query可以召回“纸巾盒”类目的很多商品，但其实文本语义上这两个意图并不相关。所以先验模型中对于召回的类目，要做语义上的判断和区分。最后，通过人工经验的规则方式将两者融合，得到最终的类目判别结果。而随着商品分布的和用户行为的变化，固定的阈值方法难以满足线上的准确率要求，需要有更合理的综合特征的方式。
+\par 基于以上的问题，我们提出了基于DNN+GBDT的类目预测融合模型，对其中的问题进行优化，并得到了准确率的效果提升。在第二部分中会详细介绍每个部分。
+\subsection{基于GBDT融合模型的类目预测}
+\subsection{基于反馈的模型}
+\subsubsection{点击模型（新）}
+类似于排序中ctr预估的方法，通过Query和类目下的商品的历史点击行为，预测Query和类目的未来的点击行为。主要使用Query历史7天、15天的曝光、点击等统计特征。
+\par 考虑到前面提到的第二个问题曝光带来的不公平点击差异，所以在回归的目标上加上了该类目下展现pv的正则项，使得本身展现高的类目会在未来的展现比例得到一定的弱化。
+\subsubsection{价格\&成交模型	}
+类目之间的商品的价格差异，在区分类目意图的差异上有着重要作用。
+\par 例如，用户搜索“手机”，自然召回的商品有主件“手机”类目和配件“手机保护套”类目，我们可以通过query下的成交价以及各个类目的商品价格加入到特征中。
+\par 所以我们建立了一个基于成交和价格的回归模型，同样利用历史的统计信息作为特征主要包括  
+\begin{itemize}
+\item query在类目下的成交价格
+\item 类目下商品的价格
+\item 类目的成交金额
+\item query的成交均价等
+\end{itemize}
+其中的类目下商品价格，为了排除掉过高过低的商品价格，我们在模型中使用在一段时间窗口内，该类目下成交商品价格平均值。
+\subsubsection{基于DNN的先验模型（Deep Prior Model）}
+首先，对于Query能召回商品的类目的集合可以作为相关类目的一个较小候选集合；然后，对于这部分类目，需要计算词构成的语义的匹配程度的分数。在计算语义的匹配模型中，我们采用了多层神经网络的方法，通过词的embedding方式表示Query和类目，然后通过Query和类目的采样做目标，来训练这个网络。网络结构图如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/lm1.png"}
+	\caption{}
+	\label{fig:lm1}
+\end{figure}
+
+\subsubsection{特征说明}
+\begin{itemize}
+\item Query Embedding：用每个词id的embedding做组合，其中加入了每个词的统计权重和意图权重。词的统计权重主要为词在Query日志中的搜索pv；意图权重主要为词的标签信息设置的人工权重，例如品牌词、品类词、型号词可能在意图中有更高的权重。最终词的权重表示为 $log( pv ) * tag\_weight $。
+\item Category Words Embedding：每个类目下的词，计算tf*idf，这里的idf计算将每个类目作为一个doc，即在越多类目中出现的词，约不重要。选取每个类目下的最高权重的词来表示类目，并进行带权的embedding计算（全连接）。
+\item Cate Id Embedding：类目id直接做embedding
+\item Cate State Feature：主要为类目下商品的平均成交价等连续值统计特征。
+\end{itemize}
+\subsubsection{样本\&采样}
+样本为Query和类目的pair对，主要来源于以下几个部分：
+\begin{itemize}
+\item 当前类目与该类目路径名称（其中的词作为Query）为正样本；当前类目和与该类目具有相同父类目（只向上一层）的叶子类目的名称为负样本。
+\item 对于有行为的类目，每个类目下随机抽取有行为商品，对每个商品，获取其ctr高的Query作为正样本；同时，这部分Query可以召回的非该行业或一级类目的商品类目为负样本。
+\item 对于没有行为的类目和商品，对商品标题中的词做随机采样，作为正样本。此时选择组成Query的词数目有限制，选择过短的随机Query会带来很大的歧义。同时和前面的方法相同，生成的Query召回的非该行业或一级类目的商品类目为负样本。
+\item 基于少量人工规则的采样，基于类目之间的互斥关系，Query的正样本类目对应的互斥类目为负样本。
+\end{itemize}
+\subsubsection{总结\&思考}
+\begin{itemize}
+\item 为什么使用点击的数据？
+\par 点击的样本在准确性上有较高的保证，而且从数据的观察发现，每个类目下的高点击的Query并不一定是和类目相关，但是Ctr高的query往往与类目的关联性很大。而且由于我们丰富了类目的表示，即类目用词来表示的同时也增加了一定的泛化性，也就是说对于词表达比较相似的类目，即使自身行为并不丰富，也可以通过与其表达相似的类目来学习得到和Query的关联性。
+\par 选择类目下各个商品的Query与选择类目整体的Query，前者可以带来更丰富的特征，后者可以在统计的丰富上保证准确性。
+\item 为什么不使用多分类目标的模型？
+\par 最开始设计方案时其实调研过多分类的方案，最后还是选择二分类的框架主要原因有两个：首先 Query的类目预测不同于商品，往往会存在多个合适的类目预测结果，所以如果采用Softmax loss的多分类，则会由于loss本身的限制，难以使得多个类目同时为正，就算是整体的平均loss最低，对于多label的样本中的loss也是比较高；另外，最重要的一点是先验模型的计算是可以预先知道候选类目的，也就是通过召回限制，可以得到Query的候选类目在一个小的集合范围中，相比多分类的全label空间，要缩小了很多倍（15000->50），而且如果以类目作为特征而不是label，可以得到很多类目的统计以及描述类特征。
+\end{itemize}
+\subsection{基于GBDT的Ensemble模型}
+前面所述分别从行为反馈和商品分布得到不同维度的相关性描述，在线上版本的模型中对于各个特征采用分数的规则来决策得到最终的相关类目。我们改进了原有通过人工经验的方式设置相关性分档的规则，通过人工标注的样本，将多个特征通过GBDT模型做最后的决策分档模型。整体图如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/lm3.png"}
+	\caption{}
+	\label{fig:lm3}
+\end{figure}
+目前在GBDT的特征包括：
+\begin{itemize}
+\item 先验模型分数(Deep Prior Score)
+\item 点击分数、价格\&成交分数，在Query下所有类目的归一化、比例等。
+\item Query召回类目下的商品数、占Query的商品数比例、占类目下的总商品比例。
+\item Query分词长度、Query召回的类目总数（描述宽泛性的Query）
+\item 类目所属的一级类目、行业等
+\end{itemize}
+\subsection{模型效果与分析}
+
+\subsubsection{数据效果 \& 页面效果}	
+新老版本效果对比，Query搜索“电脑显示器”，类目预测的结果对比（上图为老版本，下图为新版本）
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/lm4.png"}
+	\caption{}
+	\label{fig:lm4}
+\end{figure}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/lm5.png"}
+	\caption{}
+	\label{fig:lm5}
+\end{figure}
+在页面BTS的商品类目对比效果：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/lm6.png"}
+	\caption{}
+	\label{fig:lm6}
+\end{figure}
+
+\subsection{指标效果}
+先验模型的训练中用人工标注的样本作为validation集合，通过网络参数以及样本的分布调整，模型在验证集合的auc可以达到0.8。
+\par 人工评测整体模型时会根据算法产生的类目档位相关（2档）、不相关（1档）进行准确率和召回率的判别，主要关注的是2档类目的准确率和召回率。样本抽取时为了更好的暴露各个行业中可能存在的问题，采用分别对每个行业下按照Query pv分布进行采样的方法。在评测样本中，新方法相比老的方法在2档准确率上有10\%左右的提升（68.51\%->78.75\%），召回率略有下降1.61\%(60.98\%->59.37\%)。（因为评测采样的数据样本是每个行业的覆盖量在同样的量级，所以对于较难的长尾行业的数据也会放大，相比线上真实的流量比例，是偏难的一种评测方法）。目前整体的模型数据已经在主搜PC开始BTS。
+\par 从效果看对于覆盖率的提升空间还比较大，主要源于一些宽泛Query例如搜索品牌、宽泛描述的品类等问题，对于子品类类目的覆盖率需要在先验模型的采样优化中多加考虑；而且在一些长尾行业的类目上的预测准确率还是需要提升，因为行为比较稀疏，需要更多的商品分布特征。
+\par 后续的优化空间主要在先验模型的部分和整体模型的调优，现在只有基于DNN的网络，后续可以考虑更有局部特征能力的CNN和全局性表示的LSTM作为Query和类目的表示。目前由于受限于人工标注样本的数量限制，没有办法做到end to end的整体框架模型，这个也是后续值得优化的一个方向。
 
 
-\section{深层语义匹配技术} 
+\section{基于类目树结构的query长尾类目预测}
+\subsection{背景介绍}
+\subsubsection{淘宝的类目树体系介绍}
+淘宝上有上亿的商品，通过类目来管理这些商品。类目就是商品分类，是商品信息的一种结构化描述，目的是为了管理、导购。淘宝的类目是树状结构的，如下图。一个类目可以细分为更多的下一级类目。类目id=0的类目叫根类目；没有下一级类目的类目叫叶子类目；没有上一级类目的叫一级类目（实际上，一级类目的父类目是根类目，但是根类目是大家不可见的虚拟类目，因为可以认为没有）；有下一级类目的类目是下一级类目的父类目；有上一级类目的类目是上一级类目的子类目。如图为例:“电烤箱”、“电饭煲”、“电压力锅”、 “电蒸锅”、“微波炉”等就是叶子类目;“厨房电器”就是一级类目;“厨房电器”是“电烤箱”、“电锅煲类”、“微波炉”的父类目;“电烤箱”是厨房电器的子类目;大家也常常叫一级类目的子类目为二级类目，二级类目的子类目为三级类目，依次类推。淘宝类目树体系的数据一般可以通过tbcdm.dim\_tb\_cate表获取。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cwlm0.png"}
+	\caption{}
+	\label{fig:cwlm0}
+\end{figure}
+\subsubsection{基于类目树的类目预测}
+query的类目预测是淘宝搜索相关性的重要组成部分，通过类目预测，可以把与用户搜索query意图相关的类目对应的商品靠前呈现，从而保证用户的体验效果。
+\par 对于高频的query，淘宝已经积累了用户的一些行为数据和统计信息，通过这些数据[建立模型](https://www.atatech.org/articles/85571)往往可以取得较好的预测效果。但对于低频的query，由于缺乏足够的反馈数据，只能通过query本身的语义来推测query意图相关的类目，本文将低频query的类目预测定义为长尾类目预测。
+\par 长尾类目预测问题，是一种[multi-label的分类问题](http://ieeexplore.ieee.org/document/6471714/)，可以考虑转为multiclass的方式来处理。之所以将multilabel问题转为multiclass问题是基于如下考虑:
+\begin{itemize}
+\item multilabel的标注数据比较难获取，对于一个query，要罗列出它所有相关的类目很困难，现有top query的2档类目预测准确率也才80\%;
+\item multilabel大多数模型是把二档类目都当做同样重要的label来处理，但由于行业下商品、用户行为差异，一个query对应的2档类目分布应该有主次之分，例如"连衣裙"在"女装-->连衣裙"类目应该占大多数，在"大码女装"类目下应该占少数。
+\end{itemize}
+传统处理多分类的方式利用softmax得到每个节点的概率，对应淘宝的类目预测即只预测**叶子类目**出现的概率，这种方法存在着三个严重的缺陷:
+\begin{itemize}
+\item 淘宝叶子类目存在着上万个，直接预测上万个叶子类目对应的概率，一方面每次需要对上万个节点计算对应的值，复杂度较高，另一方面softmax函数在top 1的概率区分度较好，但top3-5的类目往往概率值都很接近
+\item 没有利用淘宝类目树的体系，相当于只取了类目树叶子节点的信息进行分类
+\item softmax划分两档类目难以确定阈值，top K的处理方式对处理宽泛query或明确意图query都不准确
+\end{itemize}
+为了合理利用淘宝类目树的信息，我们提出了基于类目树的层次分类(以下简称层次分类)方法，其效果如下图，对于query"实木欧式床",我们先预测其到一级类目"住宅家具"、"家装主材"、“尿片/洗护/喂哺/推车床"的概率，然后逐层传导，得到对应每个叶子节点的概率。"实木床”的概率为0.8260是按如下公式计算的，即将概率值逐层传导：
+$$P(实木床|实木欧式床) = P(实木欧式床|实木欧式床)\times P(床类|住宅家具,实木欧式床)\times P(实木床|床类,实木欧式床)$$
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm1.png"}
+	\caption{}
+	\label{fig:cwlm1}
+\end{figure}
+基于类目树的层次分类方法相比softmax有着明显的优点:
+\begin{itemize}
+\item 层次分类可以直接得到各个父节点的概率
+\item 层次分类做预测时计算量会小很多，可以考虑树分层遍历贪婪地选出出现可能性大的类目，例如在预测一级类目时直接把概率值较低的类目的分支就不进行预测了。如果贪婪的方式选取每个父节点top的子节点进行预测，层次分类只需要对至多$3^{6}=729$个叶子节点排序取topK, 而softmax则需要对1万多个节点排序取topK
+\item 层次分类的准确率会优于softmax分类，层次分类每次对几十个类目预测相应概率，而层次分类是一次对一万多个类目预测概率。实验的效果也证明层次分类预测到叶子类目的准确率比softmax高5\%。
+\end{itemize}
+本文接下来几章将重点介绍层次分类，具体如下:
+\begin{itemize}
+\item[-] 第二章主要介绍下业界常用的层次分类模型
+\item[-] 第三章主要介绍基于类目树的层次分类的模型及公式推导
+\item[-] 第四章主要介绍淘宝长尾类目预测模型的整体框架及相关实验总结
+\end{itemize}
+\subsection{相关研究}
+大规模层次分类领域，业界有很多研究，主要的研究方向在文本分类、蛋白质结构识别等领域。在[A Survey of Hierarchical Classification Across Different Application Domains](https://link.springer.com/article/10.1007/s10618-010-0175-9) 中介绍了常用的层次分类方法, 
+\par 主要有三大类:
+\begin{enumerate}
+\item 平面分类
+\item 局部分类器
+\item 全局分类器
+\end{enumerate}
+
+\subsection{平面分类(Flat classification)}
+如下图示例，不考虑类别层次，将类别树种所有叶子节点看做相互独立的平级类别，作为一个多类别分类问题(multi-class)处理，一般使用softmax函数预测各个叶子的概率，选top K作为预测结果。常见的文本分类、手写数据识别都是使用softmax做分类。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm2.png"}
+	\caption{}
+	\label{fig:cwlm2}
+\end{figure}
+
+\subsection{局部分类器(Local-model hierarchical classification approaches)}
+局部的分类器的方法又细分三类
+\begin{enumerate}
+\item 预测每个节点
+\item 每个母节点建立分类器
+\item 逐层分类
+\end{enumerate}
+
+\subsubsection{预测每个节点(Local classifier per node approach)}
+如下图，对每个节点(叶子和非叶子)建立二分类模型预测，得到所有预测为1的节点，然后遍历树结构找到从根节点到叶子节点全为1的路径，这些路径对应的叶子节点就作为输出的label。如果层次结构中有很多节点，这种方法训练的分类器将非常多，正负样本的采集工作量也是巨大的。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm3.png"}
+	\caption{}
+	\label{fig:cwlm3}
+\end{figure}
+
+\subsubsection{每个母节点建立分类器(Local classifier per parent node approach)}
+如下图，基本想法就是给每个非叶子节点建立分类器，想法比较直观，本文的层次分类模型主要借鉴该方法。该方法的缺点是无法用在有向无环图的结构里。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm4.png"}
+	\caption{}
+	\label{fig:cwlm4}
+\end{figure}
+
+\subsubsection{逐层分类(Local classification per level approach)}
+如下图，逐层建立分类器进行。这种方法在近几年的论文中结合神经网络使用较多，如[Hierarchical Classification of Gene Ontology-based Protein Functions with Neural Networks](http://pdfs.semanticscholar.org/0a0c/8c6eab6152910da4165688b2352cc8261d19.pdf)就是使用这种方法改进的网络, 第一层的预测结果作为特征加入第二层中训练，每层的激活函数都是logistic，通过卡一个阈值来输出multi-label。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm5.png"}
+	\caption{}
+	\label{fig:cwlm5}
+\end{figure}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm6.png"}
+	\caption{Hierarchical Classification of Gene Ontology-based Protein Functions with Neural Networks}
+	\label{fig:cwlm6}
+\end{figure}
 
 
-\section{AI4B实战@查询词图像化映射技术} 
+\subsubsection{全局分类（Global or big-bang classifier)}
+
+根据整个类别层次学习一个分类模型。如[Decision Trees for Hierarchical Multi-label Classification](https://link.springer.com/article/10.1007/s10994-008-5077-3)就通过决策树来学习一个全局模型。Cai等人基于SVM构造层次分类方法，利用类别层次信息构造判别函数，由SVM模型计算文档在某个类别以及该类别所有祖先类别上得分，然后将这些得分加权作为文档最终得分，以此判别文档类别。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm7.png"}
+	\caption{}
+	\label{fig:cwlm7}
+\end{figure}
+
+\subsection{本文层次分类模型介绍}
+本文层次分类层的实现方法类似于word2vec中hierarchical softmax的方法，计算从根节点到叶子节点这条路径的概率，路径的概率是按每个非叶子节点走到其子节点概率之积，即损失函数是取**负对数似然函数**。
+\par 层次分类模型中主要用到了树结构的概率逐层传导，我们通过对每一层建立判别模型可以简化层次分类的计算。假设query输入数据传入的为K维的向量X，对某一父节点$C_{父}$,其子节点为$C_{子i}, i \in \{1,2,\dots,M\}$，则应该满足概率$\sum\limits_{i}P(C_{子i}|C_{父},X)=1$。从$C_{父}$到$C_{子i}$计算概率是一个明显的多分类问题，我们可以用softmax函数做分类来处理，只是这里的M比较小，一般是2-20。
+
+\subsubsection{基本定义}
+为了方便说明，我们定义一些符号，
+\begin{enumerate}
+\item query输入为K维的向量X
+\item 设某条选中的类目全路径(从根节点到叶子节点)长度为$l_{c}$.
+\item 设对应的类目树全路径节点为$c_{0}、c_{1}、\dots、c_{l_{c}}$, 其中$c_{0}$为根节点,$c_{1}$为行业,$c_{l_{c}}$为叶子节点，一般$l_{c}$不大于7.
+\item 每个$c_{i}$对应的子节点数定义为$N_{c_{i}}$, 其中$i \in \{0,1,2,\dots,l_{c}-1\}$
+\item 每个$c_{k}$对应在父节点的位置为$I_{c_{k}}$, 其中$k \in \{1,2,\dots,l_{c}\}$, 且有$0\leq I_{c_{k}} \leq N_{c_{k-1}}-1$
+\item 每个非叶子节点对应的向量为$\theta_{c_i}\in R^{N_{c_{i}}\times K}$, 其中$i \in \{0,1,2,\dots,l_{c}-1\}$, $\theta_{c_{i}}^{(t)}$表示$\theta_{c_{i}}$第t行的向量
+\end{enumerate}
+\par 针对i=$1、2、\dots、c_{l_{c}}$, 我们用softmax得到每个节点$c_{i}$的条件概率，公式如下(假设b相同):
+
+\begin{align}
+P(c_{i}|X,c_{i-1}) = \frac{\exp(\theta_{c_{i-1}}^{(I_{c_{i}})}\times X)} {\sum_{s=0}^{N_{c_{i-1}}-1} \exp(\theta_{c_{i-1}}^{(s)} \times X)}
+\end{align}
+
+\subsection{损失函数定义}
+层次分类的损失函数类似word2vec，用**负对数似然函数**。我们把multi-label输入的样本转为multiclass的样本作为训练，即每次传入的数据是(query,cate)这样的单样本，对每个样本而言，其损失函数的计算公式如下:
+$$L=\sum_{i=1}^{l_{c}}L(c_{i})=-\sum_{i=1}^{l_{c}} \ln P(c_{i}|X,c_{i-1})=-\sum_{i=1}^{l_{c}}\ln\frac{\exp(\theta_{c_{i-1}}^{(I_{c_{i}})}\times X)} {\sum_{s=0}^{N_{c_{i-1}}-1} \exp(\theta_{c_{i-1}}^{(s)} \times X)}$$
+
+$$L_(c_{i}) = \ln (\sum_{s=0}^{N_{c_{i-1}}-1}\exp(\theta_{c_{i-1}}^{(s)} \times X))- \theta_{c_{i-1}}^{(I_{c_{i}})}\times X$$
+
+\subsubsection{前向传播计算}
+前向传播主要是计算top的Loss值，可以根据Loss的公式由全路径节点为$c_{0}、c_{1}、\dots、c_{l_{c}}$计算得到
+\subsubsection{反向传播计算}
+反向传播类似于[word2vec](http://blog.csdn.net/itplus/article/details/37969979)  中推导的方式，求出对$\theta、X$的偏导。
+\par 以下偏导的计算公式是对单个训练样本而言的，如果是batch训练，则通过循环对每个样本更新反向传播值。
+\subsubsection{非路径上的$\theta$偏导}
+非类目全路径上的偏导为0
+\subsubsection{关于路径上$\theta$偏导}
+对于每个$\theta_{c_{i}}^{(t)}$而言(其中$i \in \{0,\dots,l_{c}-1\}$)，关于L的偏导只和$L(c_{i+1})$有关，故偏导K维向量如下:
+\begin{itemize}
+\item[-] 当 $t\neq I_{c_{i+1}}$时偏导为
+$$\frac{\partial L(c_{i+1})} {\partial \theta_{c_{i}}^{(t)}} = \frac{\exp(\theta_{c_{i}}^{(t)}\times X)}{\sum_{s=0}^{N_{c_{i}}-1} \exp(\theta_{c_{i}}^{(s)}\times X)}$$
+\item[-] 当$t= I_{c_{i+1}}$时偏导为
+$$\frac{\partial L(c_{i+1})}{\partial \theta_{c_{i}}^{(t)}}=\dfrac{\exp(\theta_{c_{i}}^{(t)}\times X)}
+{\sum_{s=0}^{N_{c_{i}}-1}\exp(\theta_{c_{i}}^{(s)}\times X)}-X$$
+\end{itemize}
+\subsubsection{关于路径上X偏导}
+可以先求关于每个$L(c_{i})$的偏导
+$$\frac{\partial L(c_{i}) }{\partial X} =\sum_{s=0}^{N_{c_{i-1}}-1} \dfrac{\exp(\theta_{c_{i-1}}^{(s)}\times X)}{\sum_{s=0}^{N_{c_{i-1}}-1}\exp(\theta^{(s)}_{c_{i-1}}\times X)} \times \theta^{(s)}_{c_{i-1}}-\theta_{c^{i}}^{(I_{c_{i}})}$$
+
+$$\frac{\partial L}{\partial X} = \sum_{i=1}^{l_{c}} \frac{\partial L(c_{i}) }{\partial X}$$
+
+
+\subsection{层次分类基本框架}
+
+前面介绍了层次分类的的损失函数、前向、后向传播的定义，下面我们具体看下层次分类层的实现框架,如下图:
+\begin{itemize}
+\item[-] Hierarchical loss layer(图的左边部分), 主要用于层次分类的模型训练
+\begin{itemize}
+\item[*] 输入K维向量X，及其label为叶子类目cate\_id,以及淘宝类目树结构
+\item[*] 前向传播计算损失函数L，是根据传入的cate\_id得到对应在类目树的路径，然后计算每个节点对应的损失函数$L(c_{i})$,然后对loss求和得到$L=\sum_{i=1}^{l_{c}}L(c_{i})$
+\item[*] 反向传播则根据类目全路径，将偏导传给底层，得到$\frac{\partial L}{\partial X}$
+\end{itemize}
+\item[-] Hierarchial predict layer(图的右边部分), 主要用于层次分类的模型预测。模型利用已训练好的层次分类参数及结构进行预测，使用贪婪的算法处理(例如每个父节点选top3的子节点进行计算),通过树的层次遍历，可以得到概率值较高的叶子类目，以此作为输出。
+\end{itemize}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm8.png"}
+	\caption{}
+	\label{fig:cwlm8}
+\end{figure}
+
+\subsection{前、后向传播优化}
+我们注意到损失函数L可以把沿路径计算loss问题(左图)转化为右图展开形式，并行计算，互相不受影响。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm9.png"}
+	\caption{}
+	\label{fig:cwlm9}
+\end{figure}
+
+\subsection{基于层次分类的query类目预测}
+
+我们利用层次分类模型来完成淘宝query的长尾类目预测，模型训练的主要框架如下:
+\begin{itemize}
+\item[*] 输入数据有三部分:
+\begin{itemize}
+\item[-] Query，用户输入的query
+\item[-] Label, 训练时使用的label数据
+\item[-] Tree structure, 淘宝的类目树结构，用于层次分类模型构建和先验概率计算
+\end{itemize}
+\item[*]  特征提取:
+\begin{itemize}
+\item[-] 从输入Query提取语义相关的特征(semantic feature),
+\item[-]从淘宝用户历史行为、商品历史分布中提取统计特征(statistical feature)
+\end{itemize}
+\item[*]  通过神经网络组合特征进行学习，然后用层次分类模型做训练和预测
+\end{itemize}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm10.png"}
+	\caption{}
+	\label{fig:cwlm10}
+\end{figure}
+
+下面分别从数据和模型详细介绍下我们的工作，类目预测划档的工作不在上面框架图中，我们会在本章第三节介绍下相关工作。
+
+\subsection{训练数据}
+深度模型通常需要大量训练数据，但对于长尾query而言，multilabel问题中高质量的标注label难以获取。我们考虑一些规则的方法，获取训练数据
+\begin{itemize}
+\item[*] top Query的的数据。top Query由于存在用户的行为数据，往往类目预测准确率较高，我们可以根据一些规则，提取top Query的训练数据，以此来迁移学习长尾类目预测:
+\begin{itemize}
+\item[-] 每个商品关联的top K的query
+\item[-] 历史top query对应的2档类目
+\end{itemize}
+\item[*] 商品标题及其对应类目。商品放置的类目是最为准确的label，虽然标题数据与query分布上存在着差异，但可以使用标题的数据预训练，得到词和字符的向量表达
+\item[*] 标题词采样。标题词采样生成query由于生成query的质量难以保证，准确率较低。
+\item[*] 人工标注积累的一批长尾query及其label。
+\end{itemize}
+
+\subsection{特征提取}
+query长尾类目预测可以提取的特征主要有两部分组成:
+\begin{enumerate}
+\item 语义特征。语义特征主要是query本身表达的语义，这可以从词、字符维度通过DNN/CNN/LSTM等方式学习query的语义表达，如上面框架图中分别对query以词、字符维度做了embedding, 然后再分别得到query的语义表达向量(128~256维)。另外语义特征还可以考虑词用word2vec预训练，加入词性、tagging等特征(框架图中未画出)等。
+\item 统计特征。统计特征主要是从query或词的历史行为数据来获取特征，主要包括:(a)词在各类目分布,互信息;(b)词在搜索中的pv,uv,gmv,ctr,互信息;(c)query历史的pv,uv,gmv,ctr;(4)相似query历史的pv,uv,gmv,ctr;
+\end{enumerate}
+上面框架图中的特征提取工作如下:
+\begin{itemize}
+\item[*] 对query归一化后提取语义特征:
+\begin{itemize}
+\item[-] 中粒度分词进行embedding操作(50w词表), 每个词128维向量表达，之后通过DNN/CNN等方式得到query的语义向量128维
+\item[-] 提取query中的字符进行embedding操作)(7000个字符),每个字符64维向量表达，之后通过DNN/LSTM等方式得到query的语义向量128维
+\item[-] 把词维度表达的语义向量和字维度表达的语义向量concat，得到256维语义向量
+\end{itemize}
+\item[*] query归一化后提取统计特征，这里主要考虑通过词类目分布来预估query的类目分布
+\begin{itemize}
+\item[-] 根据一定规则得到每个词的先验分布
+\item[-] 根据词加权平均得到query的类目先验分布，见下面"苹果手机"例子
+\item[-] 得到query在叶子类目的概率分布后，以类目树结构解析得到每个节点的概率
+\item[-] 将叶子节点和非叶子节点铺平，按概率值降序排，截断top 300的节点及其值作为query的先验类目特征
+\item[-]将top300的先验类目特征由稀疏值转为1.5万维向量
+\end{itemize}
+\item[*] 将语义特征和统计特征做全连，得到组合特征。
+\end{itemize}
+
+> 若词"苹果"先验类目概率分布如:  新鲜水果>>苹果:0.5 ,手机:0.5
+词"手机"先验类目概率分布如: 手机:0.4,手机壳:0.4,手机配件:0.2
+则query"苹果手机"对应的类目先验分布为:手机:$0.5\times w1+0.4\times w2$,手机壳:$0.4\times w2$,苹果:$0.5\times w1$,手机配件:$0.2\times w2$
+
+\subsection{规则划档}
+query的特征经过层次分类模型后，我们可以得到query在类目树中的概率分布，我们可以贪婪的选出叶子节点概率值最大的top 20个类目作为候选类目，在这些候选类目中进行划档。
+
+\par 现阶段划档使用的是规则划档，主要有两个规则:
+\begin{enumerate}
+\item 叶子节点概率大于一定阈值(如0.05概率)
+\item 类目全路径下子节点在父节点下概率大于一定阈值(如0.15)
+\end{enumerate}
+
+如query “衣柜 简约现代 经济型 宜家”，规则可以方便的将"衣柜"、"简易衣柜"划为2档
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/cwlm11.png"}
+	\caption{}
+	\label{fig:cwlm11}
+\end{figure}
+
+在实验中划档也考虑了简单的模型版划档，效果和规则版相当，后期有时间可以优化模型版划档
+
+|分组| 模型 | 准确率| 召回率 | F1| 备注|
+| ------| ------ | ------ |------| ------ | ------ |
+|baseline|规则版  |0.8194|0.6194|0.7055|规则是子节点在父节点下出现的概率大于0.15,叶子节点概率大于0.05|
+|组一|xgboost|0.8151|0.5897|0.6844|xgboost用1w个query数据训练(每个query10条记录),特征是query层次分类各层概率|
+|组一|xgboost|0.8061|0.6253|0.7043|xgboost用1w个query数据训练,特征是query层次分类各层概率+各层相对前一层概率+先验各层概率+先验各层相对前一层概率|
+
+\subsection{实验效果及评测}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cwlm12.png"}
+	\caption{}
+	\label{fig:cwlm12}
+\end{figure}
+
+
+\subsubsection{模型实验对比}
+|分组|分类模型| 特征选用|准确率 | 召回率| F1|备注|
+|------|------ |------ |------ |------ |------ |------ |
+|基准|baseline| |0.5736| 0.8634| **0.6893**|线上现有长尾方法, 作为baseline|
+|分组一|softmax|word+char的语义特征| 0.6632 | 0.5725 | 0.6145 |只考虑使用word,char得到的语义特征，用了DNN提取特征，最后分类模型是直接用softmax预测1.2w的叶子类目|
+|分组一|softmax|word+char的语义特征+统计特征| 0.6804 | 0.5984 | 0.6368 |在上面基础上加了query的类目先验分布统计特征,其他相同|
+|分组二|hierarchical|word+char的语义特征|0.7342| 0.5765| **0.6459** |只考虑使用word,char得到的语义特征，用了DNN提取特征，最后分类模型是使用层次分类模型后规则划档|
+|分组二|hierarchical|word+char的语义特征+统计特征| 0.7911|0.6582| **0.718**|在上面基础上加了query的类目先验分布统计特征,其他相同|
+
+从上表可以看出，层次分类模型优于直接对叶子类目分类的softmax模型
+
+\subsubsection{人工评测结果}
+人工评测整体模型时会根据算法产生的类目档位相关（2档）、不相关（1档）进行准确率和召回率的判别，主要关注的是2档类目的准确率和召回率。下面是评测结果，可以看出层次模型准确率较高，但召回率偏低，主要的原因是宽泛Query往往只给2-3个类目划为2档，如query“耐克魔术贴女鞋nike”,"女童外套春秋2017新款 韩版"。
+
+| 算法 | 评测数据 | 准确率 | 召回率| 2档丰富度|
+| ------| ------ | ------ |------ |------ |
+| 层次模型 | 按行业比例采样300个长尾query | 77.04\%|51.03\%|1.84|
+| 线上长尾算法 | 按行业比例采样300个长尾query| 63.63\%  | 65.59\% | 2.87|
+| 层次模型 | 按pv采样300个长尾query | 88.12\%|52.98\%|1.74|
+| 线上长尾算法 | 按行pv采样300个长尾query| 63.63\%|60.60\%|2.66|
+
+\subsection{后续计划}
+\begin{enumerate}
+\item 完善统计特征的生成逻辑。现有的统计特征计算方式最大的问题会带来大量噪声，如"男拖鞋"query,词"男"会带引入大量与拖鞋不相关的类目的统计信息
+\item 确保模型的稳定性。现有类目预测模型有一个很大的问题是query加上一些不相关词后类目预测结果变化较大，或者无法预测。后续考虑在模型中通过attention机制确保中心词相关的类目能预测正确。
+\item 融入知识型数据到类目预测模型中。例如将上下位宽泛词、同质类目、互斥类目等规则信息融入到模型中。
+\item 考虑和querytagging、相关性等模型一起进行multitask的学习
+\end{enumerate}
+
+
+
+\subsection{导购思考} 
+导购产品包含了底纹、搜索发现、首页分类、下拉等产品，主要功能是在搜索前与搜索中为用户提供便利的搜索引导。因此，为用户提供更加便捷的导购路线，以及让更多的用户使用导购产品，对搜索用户的增长有一定的促进作用; 
+当用户使用搜索时，他是有一定的明确需求的，而随着推荐类产品的不断发展，如直播、资讯等，老用户的使用习惯也在发生着变化，从之前的用户主动的需求发起，到现在的用户等待信息的供给，随着用户心智的变化，我们在产品上也需要因势利导的做出更满足用户需求的产品。另一方面，随着用户市场的下沉与扩展，在用户增长的前提下，势必会有大量的淘宝新用户进来，这批用户可能对如何使用搜索并不太熟悉，因此在产品方面，我们需要有更加方便易用的产品形态服务用户; 
+
+导购算法经过了多年的发展与优化，目前已经在召回、排序以及调控策略上有了较深的积累，这也促使我们不断思考如何在新形势下做出更满足用户需求的算法，从当前所面临的问题出发，我们主要从以下几个方面进行了思考：
+
+\begin{enumerate}
+	\item 多领域联合: 导购产品包含了多个产品形态，而目前这几个产品形态之间是相互割裂的，在样本、特征以及用户反馈上并没有做到信息上的共享与利用，因此如何将这多个领域进行联合起来，作为一个统一的导购整体，并达到1+1>2的效果，是我们面临的一个主要问题
+
+	\item 用户全生命周期表示: 导购产品分别是在用户无输入情况下为他推荐Query，以及在用户有部分输入情况下进行Query补全，因此对用户的全方位的理解也是所面临的一个问题，比如是否新用户、用户的活跃程度，或者是用户即将流失的状态; 另一方面，如何积累用户的长期行为，比如一年前的行为，而目前的sequence学习方法可能会更加强调当前的行为，而遗忘了较长时间前的信息，所以如何基于lifelong learning的学习机制，对用户的长期knowledge进行积累，并进行不断的累加学习，也是我们需要研究的一个课题
+
+	\item 个性化与多样性的权衡: 目前的导购产品中，比较重视用户的个性化，之前也尝试过在个性化与多样性之间进行一些平衡，但对指标在短期内有一定的负向影响。但如果考虑较长的时间范围，多样性对于用户的活跃度是有正相关的，所以如何在个性化与多样性之间进行平衡，同时通过长期收益来评价效果，也是在导购下需要解决的一个问题
+
+	\item 用户意图识别的负反馈: 在Query推荐场景下，对于用户的负反馈也面临较多的挑战，尤其是在伪曝光的前提下。因为在实际中，我们虽然在搜索框的底纹中，给用户推荐了某个Query，但是他到底有没有真正看到，或者说看到了也确实满足他的意图，但因为各种原因，跳到了其它app上，所以这部分样本不能直接作为负样本。如何获取到用户真正不满意的推荐Query，以及通过bandit的方式将其在后续的推荐中进行一定程度的降权，也是我们在持续优化的一个点
+
+	\item 推荐中的组合优化问题: 今年在底纹中做了较大的产品升级，从之前的单个底纹到现在的多个底纹轮流滚动的形式，在算法上就从之前的top1问题转换到了现在的topN问题，如何决定N的值，以及根据用户的浏览宽度等决定不同类目的组合也是一个新问题，比如有的用户的兴趣点比较狭窄，可能这N个Query就偏向于这一个意图，有的用户兴趣比较发散，我们就可能会在类目宽度上放得更广
+
+\end{enumerate}
+
+搜索导购包含了多个产品形态，如底纹、首页分类、搜索发现以及下拉等产品形态，在产品定位上我们有下面的思考: 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621225243.png"}
+	\caption{}
+	\label{fig:20210621225243}
+\end{figure}
+
+在用户路径上，底纹、首页分类以及搜索发现是在用户发起搜索前的无Query情况下的推荐，更加关注的是对于用户意图的理解与推荐。而在下拉场景下，当用户已经输入了某个前缀词之后，我们会从效率和个性化两个方面，为用户提供更好的下拉服务
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621225404.png"}
+	\caption{}
+	\label{fig:20210621225243}
+\end{figure}
+
+作为一个导购的平台，对于用户的全生命周期学习与表示能够更好地识别用户意图，同时在不同场景下的样本、特征共享，可以将一个domain的信息平滑的迁移到另一个domain中，这两个方面我们在底纹中进行了初步的尝试。召回与排序一直是算法的核心，今年我们在下拉中尝试了文本生成作为召回的扩展，同时在排序上也加入了position bias的机制来解决位置所带来的偏差; 
+
+底纹: 底纹是导购中非常重要的一个产品，当用户打开手淘首页时，底纹推荐词就随之出现。因此底纹词推荐的精准性对于吸引用户进入搜索是至关重要的。底纹词在这里承接了唤起用户搜索记忆以及提供更精准Query的功能。今年我们在底纹方面尝试了多种产品形态的优化以及算法优化。在产品形态上，今年上半年尝试了多底纹同时展示的产品形态，最终采用了当前的多个底纹词滚动展示的形态。在算法方面，我们分别从召回和排序两个方面进行了升级。主要的优化点有：产品层面上的优化，从传统的单个推荐词到当前的多个词轮播的形式；
+召回上，进行了扩覆盖、分层召回以及权益类Query的召回等的扩充；
+排序上，我们正在尝试实时联合反馈的LTR排序模型，将多个导购领域的样本、特征进行共享，形成跨领域的学习后续，底纹是导购方面非常重要的算法着力点，后续会继续在lifelong learning、multi-domain learning、组合优化等方面进行长期的深入探索; 
+
+底纹优化的演进历史： 
+\begin{enumerate}
+
+\item 基础版本，截止今年7月份之前底纹的产品形态还是跟往年一致，用户每次到达首页会触发一次底纹推荐服务请求，算法返回预测出的最有可能被用户点击的top1个query展示给用户；
+\item 多底纹版本，主要考虑到部分用户会在首页停留的时间比较长，如果推给用户的query固定是一个的话没有充分利用到用户的停留曝光机会，我们尝试了在搜索框同时展示1~3个query的样式，但同时会受限于搜索框长度，展示的query不能过长，这一版样式AB效果没有太大变化；
+\iteem 滚动底纹，顾名思义是指用户在首页停留期间可以看到多个query固定时间间隔轮播展示，是在以上版本总结和思考的基础上一种新的尝试。既能较好利用用户在首页停留期间的曝光机会，相比基础版本query长度又不会受限，此外加入动效后也能一定程度上吸引用户眼球。经过一段时间bts测试，线上AB效果也符合预期，底纹uctr提升5%；
+\item 大促样式，主要在双11当天的大促氛围下对底纹做了颜色加黑加粗的效果强化
+\end{enumerate}
+
+底纹的召回和排序优化： 底纹的在线召回以个性化为主，主要的召回类型有偏实时的i2q，q2q，以及偏长期的longtime prefer q，个性化覆盖占比90
+\%，众所周知个性化推荐效率要远高于非个性化，那么对于有历史行为的用户如何继续提升个性化覆盖占比，以及对于手淘拉新和用户下沉带来的新用户如何拉新到搜索是这我们在召回优化方面的主要出发点; 
+\begin{enumerate}
+
+	\item 整体扩召回，旨在扩大有行为的那部分用户的个性化query召回候选集，主要从i2q，q2q的离线扩覆盖，以及在线拉长用户点击/搜索行为周期入手。通过item的短标题生成，title2query候选集合并等手段，我们的i2q覆盖从原来的3000w宝贝扩充到2.1亿，q2q从覆盖1600w source query扩充到1800w。这块带来的在线效果也比较明显，AB测试使用uv+4\%
+
+	\item 分层扩召回，主要是将无少行为的那部分用户按手淘的新人分层(N0~N8)划分，离线计算每个分层用户偏好的query，在线扩充基于群体的个性化召回候选池，这样做的一个好处是对于纯新登用户来说也能有一定的弱个性化推荐结果
+
+	\item 权益类query，结合之前针对三四线下沉新用户的用研报告，新用户更关注切实的优惠信息，我们尝试了联合运营圈品和获取用户实时红包在底纹透出一些带权益tag类的query，比如“家用拖把 9.9元包邮”等
+
+\end{enumerate}
+
+底纹的排序优化： 在针对新老用户的整体/分层扩召回基础上，我们自然而然会想到排序方面是不是也可以做一些针对性的优化，以下从特征和模型两个方面做简要归纳； 特征，1）user泛化特征强化，新增用户手机品牌、30天浏览类目宽度、浏览卖家数、最近1月手淘访问天数、未来7天气温等特征，离线auc提升1.3\%，在线使用uv也有1个点提升；2）将query维度的先验ctr，引导pv/uv等特征按用户分层细分；
+模型，1）新老用户模型分层；2）随着产品形态从单底纹到多底纹滚动的演进，离线模型用最新采样方式采到的样本来更新也能获得不错效果；
+
+基于Bandit重排: 重排阶段是介于精排和最后的展示之间对query排序结果的最后一次在线调整，有时候也称为策略层，一般会考虑排序list的上下文和满足一些体验保障的约束条件（比如类目的重复度等）。在这一阶段我们的优化目标既要兼顾推荐query的点击效率和丰富度，又要结合用户实时反馈尽量减少用户不感兴趣query在下一次的曝光机会。下图展示了底纹重排从最初的精排后topN随机->topN轮播->Bandit重排的优化历程以及背后的思考:
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621230926.png"}
+	\caption{}
+	\label{fig:20210621230926}
+\end{figure}
+
+基于实时联合反馈的LTR排序模型: 在开头问题思考部分我们提到对用户而言从首页跳转到搜索的使用过程中搜前->搜中->搜后是一个连贯而不是割裂的过程，在这个过程中用户实际是跟多个query导购产品有着丰富的交互行为，比如搜索前的底纹，搜索中的下拉、主动输入，以及搜索进入srp页后的锦囊/交互式搜索等。如何将这几个导购产品联动起来，更好地在各阶段满足用户的搜索意图是本部分我们研究的主要出发点。下图是用户从首页跳转搜索过程中与底纹、下拉、主动输入的一个交互示例，在这中间用户提交query的方式有多种，比如底纹、下拉推荐曝光的query有的会被点击，有的只曝光没有有效点击，有点击的我们认为是正反馈，只曝光未点击的是负反馈信息，它们都能一定程度上反应用户在当前时刻的偏好信息;
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621231042.png"}
+	\caption{}
+	\label{fig:20210621231042}
+\end{figure}
+
+传统的底纹、下拉排序任务中都是独立分开优化的，在样本、特征以及用户反馈上并没有做到信息的共享和传递。从上面的分析角度出发，我们思考是不是可以用一种基于实时联合反馈的多任务学习模型，在特征信息层实时拿到用户在各query导购产品的正负反馈时序信息，样本层在各task独有的特征基础上共享联合反馈特征，任务层做multi-task learning，具体如下图所示
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621231132.png"}
+	\caption{}
+	\label{fig:20210621231132}
+\end{figure}
+
+模型结构设计： 基于以上设想，我们提出了一种基于实时联合反馈的LTR排序模型，与上不同的是在实验阶段我们对任务层做了一定简化，通过实时多导购交互的正负反馈特征来学习用户向量，task层先只优化底纹的排序模型。该模型的优化目标是预测底纹推荐给用户的query在未来是否会被点击。相比以往的底纹排序模型特点是在特征层通过利用用户在多导购场景的正负反馈信息强化用户表示。具体来讲模型主要有以下几层： 
+
+\begin{enumerate}
+
+	\item user向量表达层，利用系统之前展示给用户但未点击的底纹query，下拉推荐给用户但未点击的query作为负反馈信息，通过底纹/下拉/主动输入提交的query作为正反馈信息。设计一种Filter Attention结构，利用这些负反馈信息来衡量用户以往意图中哪些意图在下一步将会减弱，反之负反馈中的无效曝光也可以一定程度上被鉴别
+
+	\item user向量表达拼接传统的统计特征和候选query特征，因为原有特征也包含了trigger，user，query的丰富信息
+
+	\item 经过多层全连后，学习点击/不点击二分类问题的交叉熵损失函数
+
+\end{enumerate}
+
+
+
+
+下拉: 手淘的下拉推荐是流量最大的导购产品和搜索发起途径，日均使用uv 1.05亿，占搜索uv的75\%以上；通过下拉推荐的引导pv占总的搜索pv 46\%左右，比用户主动发起搜索的比例还要高。同时下拉又是一个古老的产品，伴随着搜索框的存在而存在，因此如何在一个具有悠久历史的产品上，针对所遇到的问题进行创新，是今年面临的挑战;
+\begin{enumerate}
+	\item 通过纠错数据、序列数据以及相似Query和文本生成方面的技术，对下拉的召回池进行了扩展，对下拉的引导PV有约4\%的提升
+
+	\item 排序中去除position bias，并建立离线训练与在线效果之间的关联，和深度模型的继续优化，在排序方面对下拉的引导PV有约1\%的提升
+
+	\item 工程方面，今年将下拉迁移到图引擎框架上，在召回排序扩展性和性能上，都有了明显提升。特别是多路召回的并行化和召回结果的混合排序，为下拉带来了50\%的latency下降，同时使得整体线上流程拓展更加灵活，大大加快迭代效率
+\end{enumerate}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621231422.png"}
+	\caption{}
+	\label{fig:20210621231422}
+\end{figure}
+
+
+全网热榜: 全网热榜的初衷是在用户增长这个大前提下，如何更好的增加用户对搜索的粘性。一方面，当用户带着需求来搜索完商品之后，他可能并不知道当前全网的热门或者趋势的数据是什么，目前的搜索发现部分比较强调个性化的因素；另一方面，当用户并没有明确的需求时，同样可以在全网热榜下面找到一些目前比较普遍热门的商品，让用户在搜索中逛起来。从而提高用户对搜索的使用粘性。是一个算法+运营互相协作的产品。全网热榜的系统流程包含了热点挖掘、榜单管理平台，以及前台投放和效果反馈几个方面; 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621225831.png"}
+	\caption{}
+	\label{fig:20210621225831}
+\end{figure}
+
+热点挖掘：热点挖掘主要是从淘系内，以及淘系外的数据源中进行挖掘。在淘系内的数据中，我们挖掘的重点分为2个方面，一个是最热点的内容，另一个是趋势Query。最热点的内容是指一直都很热门的，比如像“连衣裙”、“手机”这样的，而趋势Query是指那些之前不太热门，但是突然间火起来的，比如像圣诞节之前的圣诞节礼物，或者某个科技公司新发布的一款产品。对于趋势Query的挖掘，目前主要是通过一些比较重要的特征进行的拟合，比如像Query最近30天的pv uv ctr等指标的变化情况，比如当天uv和前1、2、3、7、15、30天的差值，以及当天uv的增速与前几天的uv的增速的差值等。又比如用户搜索Query之后，点击的商品是否新发布的情况等。通过约70个特征对Query的趋势度进行计算; 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/20210621225931.png"}
+	\caption{}
+	\label{fig:20210621225931}
+\end{figure}
+
+
+
+\subsection{参考文献}
+
+\begin{enumerate}
+\item [大规模层次分类问题研究及其进展](http://cjc.ict.ac.cn/quanwenjiansuo/2012-10/hl.pdf)
+\item [Hierarchical Multi-label classification with local multi-layer perceptron](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-016-1232-1)
+\item [A Review on Multi-Label Learning Algorithms](http://ieeexplore.ieee.org/document/6471714/)
+\item [用深度学习（CNN RNN Attention）解决大规模文本分类问题 - 综述和实践](https://zhuanlan.zhihu.com/p/25928551)
+\item [Global Model for Hierarchical Multi-Label Text Classification](http://www.aclweb.org/anthology/I13-1006)
+\item [Hierarchical multi-label classification using local neural networks](http://www.sciencedirect.com/science/article/pii/S0022000013000718)
+\item [Predicting latent structured intents from shopping queries](https://www.cs.utexas.edu/~cywu/www2017\_shopping\_query.pdf)
+\item https://github.com/brightmart/text\_classification
+\item [A survey of hierarchical classification across different application domains](https://link.springer.com/article/10.1007/s10618-010-0175-9)
+\end{enumerate}
+
+
+
+\section{query语义改写}
+\subsection{问题背景}
+在去年的search 2.0项目中query改写[1]取得了不错的效果，今年的迪拜塔项目我们准备再进一步。首先我们调研了一下突破点，主要的问题还是在于用户query和宝贝描述之间存在GAP，特别是中长尾query。把问题分成以下几种类型：
+\begin{itemize}
+\item 多种描述：划痕笔/补漆笔/修补笔/点漆笔
+\item 信息冗余:   冰箱温控器温度控制==冰箱温控器
+\item 属性检索： 118冰箱、60寸液晶电视机4k高清智能60曲面
+\item 宽泛意图： 超美吊灯、大容量冰箱
+\end{itemize}
+\subsection{所做工作}
+query改写的目标空间可以分为文本空间和意图ID空间两种类型：文本空间包含词、短语、query，意图ID空间主要包括pidvid、性别年龄尺码等自定义tag、一些语义聚合的标签如:"奢侈","可爱"等。所以我们的工作还是主要基于以下两种形式:
+\begin{itemize}
+\item 向量化改写：query映射到query，主要针对"多种描述"和"信息冗余"类型
+\item 意图ID改写：query映射到意图ID，主要针对"属性检索"和"宽泛意图"类型
+\end{itemize}
+\subsection{向量化改写}
+向量化改写的基本流程仍然是：query向量化⇒向量相似查找⇒相关性判断
+
+\subsubsection{query向量化}
+主要优化点在于通过尝试一些有效的向量化方法，对任意query向量化。下面介绍一下我们的做法：
+\begin{itemize}
+\item seq2seq
+\item 完全无监督
+\item i2i扩展
+\end{itemize}
+\paragraph{seq2seq}
+这里我们借鉴的是Skip-Thought Vectors[2],这个算法试图通过seq2seq重建句子周围的句子，如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/qr0.png"}
+	\caption{}
+	\label{fig:qr0}
+\end{figure}
+模型的目标函数也是两个部分，一个来自于预测下一句，一个来自于预测上一句。如下式：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/qr1.png"}
+	\caption{}
+	\label{fig:qr1}
+\end{figure}
+我们从session中获取训练预料，假设某个session序列是(s1,s2,...,sn),那么一条训练数据就是(si-1,si,si+1)，encoder是si词序列的lstm，decoder是分别si-1和si+1的lstm.这样训练下来decoder的上下文向量就学到了这个句子在session中的上下文表示。
+\par 其实除了query session，用query来重建其点过的宝贝标题序列同样适用，只不过decoder阶段换成query点过的标题。
+
+\paragraph{完全无监督}
+这里我们主要借鉴的WR方法[3],作者在论文中证明：在维基百科上的非标签语料库中使用流行的方法训练word embedding，将句子用词向量加权平均，然后使用PCA/SVD修改一下 。 这种权重在文本相似性任务中将效果提高了约10％至30％，并且击败了复杂的监督方法，包括RNN和LSTM， 它甚至可以改善Wieting等人[4]的embeddings.
+
+算法如其名，主要分为W和R两个步骤:
+\begin{itemize}
+\item W：就是词向量加权平均的时候的权重。
+\item R：使用PCA/SVD remove向量中的common部分。
+\end{itemize}    
+根据query的描述文本的类型，我们产出了两种向量：
+\begin{itemize}
+\item 基于query自身的词。
+\item 基于query和query点击的宝贝标题的词。
+\end{itemize}
+
+在点击数据集上，我们在query相似任务上测试WR，比pai-doc2vec[5]在单特征auc上有1.4个点的提升。
+针对上述第二种类型，在原有算法的基础上，我们做了一些改进：
+\begin{itemize}
+\item 互信息权重
+\par query点了一些标题，并不是对标题中的所有词感兴趣，对于相关性任务来说，理论上我们只关注和query最相关的词，所以在W阶段我们加入词和query互信息的权重MI(q,w),即a/(a+p(w))⇒MI(q,w)*(a/(a+p(w))),对应的|s|也根据MI(q,w)进行了scale.上述权重的改变使得单特征auc+3.5个点。
+\item 适当加大query自身词的权重
+\par 基于review case发现因为线上已经上了相似query改写/意图改写(标题中可能缺失了一些词)，导致原始query自身的某些词被attention的权重偏低。值得注意的是，当我们进一步适当提升query自身词的权重之后，auc又会+2.2个点。
+更好的做法是把点击的对象的更多属性参与向量化，比如点击的pidvid，意图id等。
+\end{itemize}
+
+\paragraph{i2i扩展}
+对一些依赖行为的算法，对于一些行为偏少的长尾query通过宝贝的i2i来扩展，可以扩大计算的覆盖率和准确度。这部分我们做了以下工作：
+
+直接召回query历史点击宝贝的i2i宝贝
+这个功能主要针对少结果query和低质量query，在去年已经做了，这次我们做了更严格的改写限制和相关性限制，收严上线。
+\begin{itemize}
+\item 协同过滤算法的扩展
+\par q对应的item越多，基于item的CF算法覆盖率越高。针对中长尾query我们用i2i扩展了点击行为。
+\item 基于点击数据的WR方法
+\par 对于点击少于20的长尾query利用i2i扩展点击数据优化embedding，覆盖query在相似query任务上单特征auc有4个点的提升
+\end{itemize}
+\subsubsection{向量相似查找}
+目前候选query集合设置的500W左右，而需要计算相似的query集合数据量已经到9亿+,相似搜索是一个非常大的计算量。计算步骤如下：
+\begin{enumerate}
+\item 对候选query集合进行kmeans聚类成C个簇
+\item 遍历C个簇中心查找余弦距离最近的topM个类
+\item 然后遍历topM个簇中的点获取topK个相似
+\end{enumerate}
+我们也尝试做了以下的改进实验：
+\begin{enumerate}
+\item 随机投影：同样数据量和kmeans对比，4096簇，top20\%簇召回率99\%，top10\%簇召回率97\%（kmeans top10\%簇召回率99\%）
+\item 积量化[6]：由于我们的维数不高(100维)，虽然性能提升1/3，但是流程也复杂了不少。
+\par 大规模数据的向量近似搜索是目前很多业务面对的问题，后续还需要再继续调研业界和其他兄弟团队的高效做法，优化上述流程。
+\end{enumerate}
+
+\subsubsection{相似判断}
+目前线上我们还是继续沿用的GBDT模型，也正在尝试使用深度语义模型，下面介绍下样本选取和模型训练部分。
+
+\paragraph{样本选取}
+深度模型依赖大量的样本喂养，而接近于真实分布的样本一直是一个难点。我们主要尝试了以下方式：
+\begin{itemize}
+\item 行为反馈获取样本
+\begin{itemize}
+\item query下有不同的改写串rewq，计算出各个rewq所带来的召回和收益情况(点击+成交),通过收益的gap筛选正样本和负样本。
+\end{itemize}
+\item 从相关性任务中迁移样本
+\begin{itemize}
+\item 改写和相关性是联动的，query和宝贝相关性的样本可以迁移过来使用。比如：一个宝贝和一个query不相关，那么这个query和点击到这个宝贝的所有query理论上都不相关。
+\item 弱标签:好处是数据丰富，获取相对容易，比如:
+\end{itemize}
+\begin{itemize}
+\item q1和q2的相似度我们用(q1,q2点击标题)的bm25或者(q2,q1点击标题)的bm25来构造弱标签
+\item 用q1和{q2下挂宝贝}的相似度来衡量q1和q2的相似度:用q1去attention q2点击doc中的词，然后向量化和q1 attention自身doc的词向量化距离进行比较，选取一些高置信度的作为label
+\item 用简单模型的输出结果来获取样本，用我们已有的GBDT模型来预测，取得分数高于一定阈值或者低于一定阈值的分别作为正样本和负样本。
+\end{itemize}
+\item 规则构造样本
+比如：使用同义词和冲突词的片段替换分别构造正样本和负样本
+\end{itemize}
+
+\paragraph{模型训练}
+这部分双11之前我们基于上述样本尝试了一部分，后面由于时间关系没有上线。下面就简单说讲一下我们初步调研的一个模型：高频词和短语通过语言模型或者点击文档能获取很多扩展的语义，容易获取高质量的embedding。而长尾query由于行为稀少，单存依赖自身信息获取embedding的质量通常不理想。调研了一下基于Skip Convolution或BiLSTM+Self-attention，通过合理设计联合训练网络，把词和短语级别丰富的embedding信息迁移到长尾query上，实现提升长尾字符串embedding质量的目标。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/qr2.png"}
+	\caption{}
+	\label{fig:qr2}
+\end{figure}
+
+\begin{itemize}
+\item 网络的左半部分：
+主要为了学习query在“session”、“点击”、“query自身”三个维度的融合表示，在相似q任务上我们继续更新和query相关的向量
+ 三个维度主要目的在于学习词，短语粒度的语义信息，泛化到所有query
+每个维度的query model可以使用跳跃卷积(skip-cnn),主要是考虑商品搜索的query对term位置的信息较为不敏感，也可以选择双向lstm+attention. 
+其实这个思路和我们的评测人员的思路很像，评测两个query是否相关，除了一个整体判断，更多的是把query拆解成一些‘短语’去判断。
+\item 网络右半部分 
+第二部分主要是为了解决相关性判定的问题，用了一个二分类的模型
+这里把q-q pair的特征也作为网络的一部分输入
+\end{itemize}
+
+\subsection{意图ID改写}
+\subsubsection{精确cpv改写}
+为了解决用户直接搜索属性而标题不写属性的问题，我们把属性改写做了全类目的覆盖。
+\par 另外把所有意图改写的逻辑做到了在线改写，这样更利于长尾query的覆盖。 
+
+\subsubsection{数字类宽泛query改写}
+对于意图比较宽泛的query，比如畅销手机，大容量冰箱，虽然在query向量改写中会有所体现，但是对于行为较少的query改写的还是不太理想。我们采取的做法是把他们映射到我们的意图id空间，比如价格，销量，pidvid，年龄，性别，尺码，季节，新品等。
+\par 这次我们重点关注了数字类型的改写。主要分成两个步骤：
+\begin{itemize}
+\item 宽泛短语挖掘：首先阿里分词的粒度肯定是不够用的，我们首先进行了phrase mining[7]，然后依据以下3点进行挖掘：
+根据种子词：这个就是尽可能寻找更多的数字类型的形容词,比如{大，小，长，高，胖，瘦...}
+根据极限前缀：{最，超..}这些极限词为前缀的短语往往也是我们想要的
+根据session信息，在一些包含明确数字意图的query中，也可以挖掘过一些宽泛短语。比如用户搜索"节能冰箱"之后就有可能下一步搜索"一级能效冰箱"这种具体的量化词了。
+\item 短语到pidvid的映射：有了短语之后就可以进行短语到pidvid的映射了，也主要尝试了下面3种方法：
+基于一些映射规则：价格类的词到价格，畅销类词到销量/人气等。
+基于点击行为：当前term在某个属性值的分布vs属性值在所有term的整体分布，如果分布的差异大于一定阈值，则可以认为term和属性值之间有关联，可以挂靠
+基于向量相似度：根据短语点击的宝贝标题和宝贝pidvid对应的宝贝标题，用上面的WR方法分别把短语和属性都映射到标题空间的向量。给定一个短语，根据向量相似度就可以召回其最相关的属性了，但是这个方法的准确率不太高，做推荐还可以，做改写的话还需要进一步的优化。
+\end{itemize}
+
+最后show几个挖掘的例子,字段含义：短语|叶子类目ID|映射的pidvid|映射的pidvid的文本
+\begin{itemize}
+\item | 大 容量 | 350301 | pidvid::148776183:7563249 OR pidvid::148776183:92238 OR pidvid::148776183:92239 | 洗涤公斤量:8kg;洗涤公斤量:10kg;洗涤公斤量:15kg
+\item | 迷你 | 121366015 | pidvid::122216906:34872414 OR pidvid::122216906:75369125 OR pidvid::122216906:75475137 | 化妆品净含量:20g/ml;化妆品净含量:20g;化妆品净含量:8g/ml
+\item | 0 - 6个月 | 211104 | pidvid::6932095:4097935 OR pidvid::20017:39834535 OR pidvid::20017:3306535 | 适用阶段:一段;适用年龄:6个月以下;适用年龄:新生
+\end{itemize}
+\subsubsection{知识图谱}
+这部分主要是和第三方数据的合作，进行了初步尝试，还在进展之中
+\begin{itemize}
+\item 商品知识图谱
+\par 商品知识图谱那边沟通了一些数据：品牌，新品，产品库，影视、明星同款标签,同义词/上下位等，这些都可以在改写上应用。目前主要是品牌和一些标签数据在bts。
+\item query知识图谱
+\par 主要是cpv扩展的数据和一些知识的定义，如果"奢侈"在某些类目下可以用品牌来定义，这些对query扩召回也非常有用。
+\item 评论数据
+\par 把从评论里面抽取的标签参与召回，比如‘料子好’，‘尺码合身’，’板型好看‘，‘质量好’，‘服务好’等
+最后show一个搜索‘版型好看的连衣裙’的结果对比，见下图：
+\end{itemize}
+
+\subsection{进一步计划}
+上述的query改写可以带来GMV和UV价值各+2个点的效果。可以想象query改写的空间依然是巨大的，但是我们还有很多没有做好，也还有很多要做。
+\par 对于深度模型我们会继续做，考虑query生成的思路特别是强化学习选词，Query向量的表征空间扩展到属性空间，图像空间甚至是用户空间。关于改写的目标，相关性是基础，但绝不是最终目标，后续会考虑目标改写query的价值甚至是个性化改写。
+\par "相似"对应衡量query之间的关系还是太粗了，后续我们要把query改写的类型明确化，比如同义和蕴含(上下位)，对于query之间的关系我们正在尝试一些方法[8]来挖掘。后续我们计划挖掘更多的知识，并考虑如何把知识融入到模型之中。
+
+参考文献：
+\begin{itemize}
+\item https://www.atatech.org/articles/66690
+\item Ryan Kiros, Yukun Zhu, Ruslan Salakhutdinov, Richard S. Zemel, Antonio Torralba, Raquel Urtasun, Sanja Fidler. Skip-Thought Vectors
+\item Sanjeev Arora, Yingyu Liang, Tengyu Ma.  A Simple but Tough-to-Beat Baseline for Sentence Embeddings
+\item John Wieting, Mohit Bansal, Kevin Gimpel, and Karen Livescu. Towards universal paraphrastic sentence embeddings
+\item http://help.aliyun-inc.com/internaldoc/detail/34590.html?spm=a2c1f.8259796.2.159.boklrB
+\item https://www.atatech.org/articles/15961
+\item https://www.atatech.org/articles/50958
+\item Ruiji Fu , Jiang Guo , Bing Qin.Learning Semantic Hierarchies via Word Embeddings
+\end{itemize}
+
+\section{Query Tagging}
+\subsection{背景及历史}
+
+在整个搜索体系中，用户query的理解对搜索结果起着非常重要的作用，是搜索链路中较为关键的一环，会直接间接的影响到商品召回，相关性，排序等各个方面。而QueryTagging作为其中一个部分，承担着将原始query进行结构化打标的任务，Demo如下：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/qt0.png"}
+	\caption{query: 2016秋水伊人大码连衣裙}
+	\label{fig:qt0}
+\end{figure}
+
+精准的tagging结果有利于帮助搜索引擎了解用户需求（例如用户所关注的品类，品牌，风格等），从而给用户提供更优质的搜索结果。同时，我们也能通过QueryTagging结果分析出用户的搜索习惯，各种品类品牌的搜索趋势等等，方便产品运营同学了解市场，了解用户。
+\par 要做打标，第一个面临的问题就是需要明确标签候选集。大家都知道，淘宝的每个商品上都包含着丰富的结构化信息（类目，属性等），而通过分析日志不难发现大部分的用户query内容都体现在这些信息里面。因此，我们基于商品的cpv数据，结合用户最常见的搜索意图，构建了一套适用于主搜业务的标签体系（目前共计42种Tag类型），link: http://searchwiki.alibaba.net/index.php/QT-tag%E6%98%A0%E5%B0%84%E6%95%B0%E6%8D%AE
+\par 在任务初期，缺乏标注语料的年代，引入任何高大上的模型都是空谈。因此为了构建打标任务，我们采用了简单有效的词典匹配方法。针对不同类目，在词典的质量和覆盖上都做了大量工作。效果也十分显著，渐渐的将打标任务的准确跟召回都提升到了百分之八九十。对类目预测，相关性等后续业务都带来了不小的帮助。
+\par 然而随着业务的逐渐精细和不断发展，我们对QueryTagging也提出了更加严格的要求。词典版本的许多弊端慢慢开始展现，例如无类目预测query下的召回问题，一词多义问题等等。而深度学习的慢慢普及，以及前期词典版本带来的一些语料沉淀，也给我们解决这些弊端带来了可能，因此我们尝试在QueryTagging任务中引入Deep Learning模型进行优化，并最终在目标数据集上取得了较好的效果提升。
+
+\subsection{Sequence Labeling模型}
+QueryTagging可以看成是一个分类问题：对每个term，我们需要根据上下文信息来判断，它属于标签体系中的哪个类别。我们尝试过将其作为一个标准的分类问题来处理，抽取term本身的特征以及上下文特征作为输入，标签作为输出，但是效果不太理想，一方面特征工程比较麻烦，需要人为的去处理很多看似有用的特征；二是这种做法对上下文信息的利用不是非常充分。
+\par 因此在做了一些尝试后我们将问题重新转换回序列标注问题，使用目前较为流行的bilstm+crf框架，避免了许多复杂的特征工程，并且最终在无类目预测query上取得了较好的效果提升。
+\par 模型结构图如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/qt1.png"}
+	\caption{}
+	\label{fig:qt1}
+\end{figure}
+
+整个网络包含三个层次，Embedding layer, Feature layer, Inference layer, 逐层介绍：
+\begin{enumerate}
+\item Embedding layer：
+
+Embedding layer主要由三部分concat组成，
+\begin{itemize}
+\item[*] term维度embedding
+\item[*] character维度embedding，通常使用CNN或RNN将字符维度抽取成term维度的向量表达。
+\item[*] term维度的一些手工特征，例如是否是数字，是否全英文等。
+\end{itemize}
+\item Feature layer
+Feature layer 根据输入的embedding向量进行特征抽取，理论上可以是任意的DNN,CNN或者RNN网络。
+考虑到RNN在处理序列问题上的优点和特性，我们真实实验中使用的是双向LSTM，同时我们对比过多层堆叠的LSTM结构，在效果上相差不大。
+\item Inference layer
+Inference layer根据feature layer抽取的特征，需要对每一个term做分类任务，可以是一个简单的softmax layer，也可以是序列标注中常用的crf layer。考虑到CRF能考虑到不同tag之间的转移概率信息，我们在实验中采用了CRF。
+\end{enumerate}
+
+
+\subsection{与知识图谱的结合}
+
+QueryTagging任务与搜索目前正在构建的知识图谱体系息息相关，双方互为输入输出。一方面，QueryTagging的打标结果能帮助知识图谱进行实体识别，实体链接等工作。另一方面，知识图谱内丰富的知识数据有利于帮助Tagging任务处理未识别词，提升已识别词的准确率。相信随着知识图谱的不断完善，tagging也会有更好的表现。
+
+
+\subsection{实验}
+
+QueryTagging任务一直以来存在的一个问题是无类目预测的query下，打标效果较差。主要原因在于词典版本是基于类目维度的，在无类目信息下，词典的覆盖跟准确都有较大问题。而在带类目预测query下，打标的质量较高。因此我们使用带类目预测的query作为训练样本对模型进行训练，对无类目预测的query进行预测，从而提升无类目预测query下的打标准确率与召回率。
+
+\subsubsection{评测结果}
+
+我们在无类目预测query下，针对词典版本以及模型版本的打标结果分别进行了评测。评测流程是随机抽取2000条左右无类目预测query提供给外包同学对打标结果进行审核。同时对外包审核结果会进行抽查，确保审核准确率在95\%以上。
+
+\par 从评测结果上看，模型版优化后的数据指标明显优于词典版本评测指标。具体表现为
+<font color=red>accuracy +12\%, precision +4.6\%, recall +8\%</font>。
+
+
+\subsection{思考及展望}
+从实验效果看，带类目query的学习对无类目query的打标帮助很大，同时也能解一些词典版本无法解决的问题，这是我们第一次将DeepLearning引入到主搜QueryTagging任务中，使用了业界比较流行成熟的算法架构，带来了不错的效果提升。但实际上，主搜QueryTagging的场景下仍有许多问题待解，例如分词错误导致的打标错误，型号词识别问题等等，这些都不是一个模型能通吃的，它们也给我们带来了更多的场景供算法发挥，例如带类目与无类目数据之间的迁移学习，tag+分词的multitask任务，打标与知识图谱的结合等等，这些也都是后续优化的方向。
+
+\subsection{部分参考文献与链接}
+\begin{itemize}
+\item Adversarial Multi-Criteria Learning for Chinese Word Segmentation
+\item Named Entity Recognition with Bidirectional LSTM-CNNs
+\item End-to-end Sequence Labeling via Bi-directional LSTM-CNNs-CRF
+\item Part-of-Speech Tagging for Twitter with Adversarial Neural Networks
+\item QueryMatrix平台 (http://sqi.alibaba-inc.com/MatrixQ/index.htm)
+\item Query全景洞察(https://sqi.alibaba-inc.com/babel/queryintention/queryUser/industryDesc.htm)
+\item 知识图谱阡陌平台(http://sqi.alibaba-inc.com/qianmo/toSetKgPinlei.htm)
+\end{itemize}
+
+\section{Query纠错}
+\subsection{背景}
+
+在实际的搜索输入框中用户输入的查询词query不一定都是完全正确的, 此时如果直接使用用户输入的query去查倒排索引, 一般情况下都无法召回正确的宝贝, 甚至召回不了宝贝.为了提高用户的使用体验, 一般的搜索系统都会提供query纠错的功能, 在检测到用户输入的query有误的情况下, 会提示用户对应的正确query或者直接对用户的query进行纠正, 方便用户直接得到想要的结果. 
+
+\subsection{任务说明}
+
+在英文拼写纠错系统中, query错误的形式主要分为两种: 一种是Non-word Error, query中部分英文单词不是实际词典中存在的单词, 比如: theree is nothing  --> . 另外一种是Real-word error, 即部分英文单词是词典中存在的词, 只是在当前语境下, 这个单词是错误的. 比如: three is nothing --> there is nothing
+
+考虑到中文的特殊情况,以及中文存在拼音输入的问题, 因此相比单纯的英文纠错之外, 中文系统的拼写纠错会稍微复杂一些. 在淘宝搜索系统中, 拼写纠错包括三个子任务:
+
+\begin{enumerate}
+\item 英文纠错
+
+淘宝中常见的英文输入错误主要是英文品牌输入错误. 例如: ipone手机 --> iphone手机, barberry围巾 --> burberry围巾等, 和英文系统中的错误类型基本一致.
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc0.png"}
+	\caption{}
+	\label{fig:jc0}
+\end{figure}
+
+\item 中文纠错
+
+中文汉字的错误形式一般是”别字”错误, 比如:拼音相似以及不同地区发音不一致导致的错误, 比如: 雅麻连衣裙 --> 亚麻连衣裙. 字形相似导致的错误: 榨汗机 --> 榨汁机. 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc1.png"}
+	\caption{}
+	\label{fig:jc1}
+\end{figure}
+
+\item 拼音转换
+
+由于中文目前大多是拼音输入, 因此用户输入的query可能是原始拼音串或者是错误的拼音串. 此时需要将原始query转换成正确的中文. 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc2.png"}
+	\caption{}
+	\label{fig:jc2}
+\end{figure}
+
+\end{enumerate}
+
+\subsection{实现方案}
+
+Noisy Channel Model(即噪声信道模型), 是一种比较常用的用于语言识别, 拼写纠错,机器翻译等领域的一种普适性模型. 模型形式很简单:
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc3.png"}
+	\caption{}
+	\label{fig:jc3}
+\end{figure}
+
+噪声信道模型主要是根据带有噪声信号的输入来还原输入的信号. 形式化定义为:
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc4.png"}
+	\caption{}
+	\label{fig:jc4}
+\end{figure}
+
+即: 在给定输出O的情况下, 找出概率最大的的输入I. 在实际的纠错系统中, 用户实际输入的query为Q, 我们需要找出对应的最大可能的正确输入query C*, 这个query才是用户真实想要搜索的query.  我们总共尝试了三个版本的纠错方案, 但本质上都是在观测到用户输入query Q的情况下, 求解对应的概率最大的正确query.  下面介绍下我们在淘宝搜索中的拼写纠错的工作.
+
+\subsection{基于HMM的拼写纠错}
+
+首先我们复现了基于HMM的拼写纠错流程. 整个流程如下图所示, 整个过程主要分为两个部分: 候选query生成和候选query排序. 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc5.png"}
+	\caption{}
+	\label{fig:jc5}
+\end{figure}
+
+为了生成候选正确query(C),  首先针对输入query (Q)中的每一个word都生成对应的候选正确word集合. 然后从每一个输入word的候选word集合中选择topK 来组合生成对应的正确query.
+
+\subsubsection{候选query生成}
+针对原始query中的每一个word, 根据对应的候选生成逻辑生成候选word集合. 
+\begin{enumerate}
+\item 当前word为中文
+主要根据拼音相似,字形相似两种先验知识生成候选的正确中文word, 同时我们根据session log中统计的中文常见输入错误形式补充对应的候选正确中文word. eg: 瓶 --> 平,品,屏,评,频,拼,凭
+
+\item 当前word为英文字符串
+针对英文字符串, 主要是根据编辑距离来生成候选正确英文word. 线上主要是根据编辑距离<=2来生成候选正确英文word. 
+
+\item 当前word为pinyin串
+由于拼音输入法的问题, 因此英文字符串有可能是中文对应的拼音. 为了处理这种情况, 离线我们根据query log获取了常见的中文ngram, 并以此构建了常见的拼音串以及对应的切分位置. 比如:  longjing --> long | jing \^A 253. 在线生成候选时会先对拼音串进行切分, 然后根据切分之后的每个拼音生成对应的候选中文word.
+\end{enumerate}
+
+\subsubsection{候选query排序}
+在候选query排序阶段, 针对原始query对应的word序列, 从每个word对应的候选正确word集合中选择一组概率最大的word序列, 即是对应的候选正确query. 形式化定义为:
+$$  C^* = \mathop{\arg\min}_C P(C|Q) = \mathop{\arg\min}_C \frac{P(C,Q)}{P(Q)} = \mathop{\arg\min}_C P(C,Q) $$
+
+$$= \mathop{\arg\min}_C(\pi_{C_1}\Pi_{i=1}^{l-1}a_{{C_i}{C_{i+1}}}\Pi_{i=1}^{l}b_{C_i}(Q_i))  $$
+
+C*: 最优正确query ; C: 任一候选query; Ci:候选query中的第 i 个字; 
+Q: 原始 query ;  Qi : 原始 query中对应的第i个词;   L :query 长度   
+
+候选query排序中每个query对应的概率由两部分组成:Language Model和Error Model.
+$$ \Pi_{i=1}^{l-1}a_{{C_i}{C_{i+1}}} $$Language model: 表示候选 query C 出现的可能性大小. 
+
+$$ \Pi_{i=1}^{l}b_{C_i}(Q_i)) $$ Error model：表示候选C 被错写成 Q 的可能性大小.
+
+为了计算候选query C出现的可能性大小. 我们尝试了两种概率计算方式: 一种是传统的ngram语言模型, 另外一种是LSTM语言模型.
+
+\subsubsection{N-gram语言模型}
+
+首先我们使用了经典的N-gram语言模型来计算候选query C的概率. N-gram语言模型也称为n-1阶马尔科夫模型. 它有一个基本的假设: 当前词的出现概率仅仅与前面n-1个词有关. 因此候选query C出现的可能性大小为:
+$$ P(S) = P(W_1,W_2,...,W_k) = \Pi^k_{i=1}P(W_i|W_{i-n+1},...,W_{i-1}) $$
+离线基于7天的淘宝搜索Query log, 使用srilm工具生成了trigram语言模型, 用于在线计算候选query的语言模型概率.
+\subsubsection{LSTM 语言模型}
+
+在计算候选query C出现的可能性大小时, 传统的N-gram语言模型由于仅仅考虑了前面的n(n<=4)个字, 在计算整个query的概率时会存在一定的偏差. 为此我们尝试使用LSTM语言模型来计算整个query的概率. 
+LSTM语言模型计算整个query的概率示意图如下图所示.
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc6.png"}
+	\caption{}
+	\label{fig:jc6}
+\end{figure}
+
+在每一个时间步t, 都会根据前面所有时间步的语义信息来计算当前word出现的概率. 最终通过各个时间步的概率log相加即是当前句子出现的概率. 通过上面的计算可以发现, 因此相比于n-gram语言模型, LSTM语言模型能够根据前面所有字的信息来计算下一个字的概率.
+![image.png](http://ata2-img.cn-hangzhou.img-pub.aliyun-inc.com/e3383a51bcf910e47b358588213f5835.png)
+$$ P(W_1,W_2,...,W_T) = \Pi^T_{i=1}P(W_i|W_1,...,W_{i-1}) $$
+
+\subsubsection{基于Seq2seq的拼写纠错}
+
+前面两个版本的候选query空间是通过先验知识和search log统计确定的, 因此只能覆盖一些常见的错误形式. 但是实际系统中错误的query可能是各种形式, 导致统计模型覆盖不到. 比如: 远动鞋-->运动鞋. 为了解决这个问题, 我们实验了端到端的Seq2Seq拼写纠错模型
+
+\subsubsection{模型结构}
+
+sequence-to-sequence(序列模型) 的输入和输出都是一个序列. 这种模型的一个重要特点就是输入和输出序列的长度是变长的. 而且由于是端到端的结构, 该模型能够减少很多人工处理以及人为制定规则的工作.Seq2Seq模型结构通常由Encoder和Decoder两部分组成, 而且一般通过RNN来实现对应的功能.
+
+在用户输入错误的query的情况下, 求解出对应的正确query也是一种encoder-decoder过程. 模型encoder的输入是用户的原始query.  模型decoder的输出是对应正确的query. 整体结构图如下图所示.
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc7.png"}
+	\caption{}
+	\label{fig:jc7}
+\end{figure}
+
+\subsubsection{encoder网络}
+
+该部分主要是用来将输入的句子按照顺序进行编码, 直到最后输出表示整个句子的语义向量C. 形式化定义为:
+$$ h_t = f(x_t,h_{t-1}) $$
+$$ c = \phi (h_1,...,h_T) $$
+
+其中xt为当前时刻的输入, ht-1为lstm上一个时间步的输出. C一般是RNN最后一个时间步的输出, 或者是各个时间步输出的加权和.
+
+由于RNN的特点是把前面每一步的输入信息都考虑进来, 因此理论上这个语义向量C包含了整个句子的语义向量.
+
+\subsubsection{Decoder网络}
+
+该部分主要是在根据encoder网络输出的代表句子语义的向量C, 通过另外一个单独的RNN网络, 来解码获取对应的输出序列. 形式化定义为:
+
+$$ h_t = f(h_{t-1},y_{t-1},c) $$
+$$ P(y_t|y_{t-1},...,y_1,c) = g(h_t,y_{t-1},c) $$
+
+其中, ht-1为Decoder阶段上一个时间步的隐向量输出. 而yt-1为上一个时间步预测的输出符号. 而yt为根据上一个RNN时间步的隐状态ht-1以及上一个时间步预测的输出字符yt-1, 并结合整个句子的语义向量来预测当前时间步的输出符号yt.
+
+\subsubsection{实验细节}
+
+\paragraph{Char-based embdding}
+
+为了方便处理错误的英文单词以及减少模型复杂度, 在进行encoder和decoder过程中, 我们选取的是char-based word embedding. 
+
+\par 首先, 即使是一个在词典中从未出现过的错误英文单词, 根据字符维度的embedding并通过lstm encoder也能够正确获取到输入query对应的向量表示. 
+
+\par 其次, 在decoder阶段, 通过使用char-based embedding, 在每个时间步预测下一个word的过程中, softmax的量级也只是K级别(常见的中文字符+26个英文字符), 相比于字维度以及词维度几十万维的参数空间, char-based embedding能够显著的减少模型复杂度. 
+
+\paragraph{训练样本}
+
+我们主要从以下两个部分构造基于seq2seq拼写纠错模型的训练样本.
+\begin{enumerate}
+\item 基于HMM版本线上覆盖的数据
+
+\par 通过离线埋点, 获取线上纠错覆盖的wrong query? correct query的query纠错pair作为模型的训练数据.
+
+\item 人工构造的训练样本
+
+\par 仍然是从query log中,抽取没有发生错误的query, 并随机更改其中的一个word来构造训练样本. 同时, 为了让模型学习正确query本身的信息, 我们抽取了Query log中正确query以及其自身作为目标也作为训练样本的一部分.
+\end{enumerate}
+
+\subsection{模型效果及上线优化}
+
+\subsubsection{模型效果}
+
+通过人工标注构建了2500+的错误query以及对应的正确query作为验证集.在验证集的基础上, 我们对比了各个模型的效果. 在验证集上的召回率指标如下表所示.
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc8.png"}
+	\caption{}
+	\label{fig:jc8}
+\end{figure}
+
+从实验效果上来看, 相比基本的HMM+N-gramm, 通过增加LSTM语言模型分数以及使用seq2seq模型都能显著提高spellcheck的召回率. 
+
+同时通过实际的case发现, 基于Seq2Seq的模型能够解决部分基于HMM版本没有覆盖的问题. Eg:
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc9.png"}
+	\caption{}
+	\label{fig:jc9}
+\end{figure}
+
+\subsubsection{LSTM上线}
+
+HMM + LSTM语言模型版本, 目前正在线上做bts. 前期由于在线lstm forward比较耗时,经过优化, 最终达到了上线的性能要求. LSTM forwrad的性能优化指标为:
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/jc10.png"}
+	\caption{}
+	\label{fig:jc10}
+\end{figure}
+
+\subsubsection{服务调用}
+
+通常针对query的处理都可以通过离线cache的方式来搞, 不过针对纠错query来说, 由于错误query的形式多种多样,而且pv不会大都不会很高. 因此完全使用cache的方式不合适, 还是需要配合在线纠错来提高用户体验.
+\begin{enumerate}
+\item 基本的HMM + Ngram语言模型版本目前已经在线全量, 实际纠错的效果可以在taobao直接搜索查看; 或者通过: [Matrix Q Demo](http://sqi.alibaba-inc.com/MatrixQ/index.htm?id=3\&query=xinkuanlianyiqun)查看更多详细的信息:
+\item 为了满足业务方的直接调用, 我们提供了: [basic\_service的调用接口](http://gitlab.alibaba-inc.com/newqp/basic\_service/wikis/Rewrite )
+\item 如果需要根据业务自己的log数据进行纠错数据建模, 请参考: [OpenQP wiki](http://gitlab.alibaba-inc.com/newqp/openqp/wikis/spellcheck\_rewrite)
+\end{enumerate}
+
+附录: 欢迎体验Matirx Demo: [http://sqi.alibaba-inc.com/MatrixQ/index.htm?id=3](http://sqi.alibaba-inc.com/MatrixQ/index.htm?id=3)
+
+参考:
+\begin{itemize}
+\item Xie Z, Avati A, Arivazhagan N, et al.,2016 Neural Language Correction with Character-Based Attention.
+\item Bahdanau et al., 2014. Neural Machine Translation by Jointly Learning to Align and Translate
+\item Cho et al., 2014 . Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation
+\item qSpell : Spelling Correction of Web Search Queries using Ranking Models and Iterative Correction
+\item Peter Norvig. 2007. How to Write a Spelling Corrector. On http://norvig.com. Very nice summary with straightforward Python demo code.
+\item I Sutskever, O Vinyals, QV Le. Sequence to sequence learning with neural networks
+\item Sundermeyer M, Schlüter R, Ney H. LSTM neural networks for language modeling[C]//Thirteenth Annual Conference of the International Speech Communication Association. 2012.
+\end{itemize}
+
+\section{语义相关性}
+
+传统的搜索文本相关性模型，如BM25通常计算Query与Doc文本term匹配程度。由于Query与Doc之间的语义gap,可能存在很多语义相关，但文本并不匹配的情况。为了解决语义匹配问题，出现很多LSA，LDA等语义模型。随着深度学习在NLP的应用，在IR和QA(问答系统)中出现了很多深度模型将query和doc通过神经网络embedding，映射到一个稠密空间的向量表示，然后再计算其是否相关，并取得很好的效果。本文调研了微软，IBM Waston实验室、Google等在这方面的一些工作，并介绍我们在淘宝搜索上做的些工作。     
+\subsection{DSSM、CDSSM，LSTM-DSSM及相关系列工作}
+\par 微软的DSSM及相关系列模型是深度语义模型中比较有影响力的。集团内PS上有DSSM分布式实现，而且也有多业务应用：https://www.atatech.org/articles/67415
+DSSM首先将query和doc表示成一个高维且稀疏的BOW向量，向量的维度即词典的大小，每一维表示该term在query或doc中出现的频次；如果向量每一位直接用单词，会出现维度非常高，而且对一些未登录词无法处理。作者做了一个非常有用的trick word-hash: 将每个单词表示成一个letter-tri-gram的序列， 例如：boy切分成\#-b-o, b-o-y, o-y-\#， 然后再表示成letter-tri-gram向量。把每个单词向量累加起来即表示整段文本的向量。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/xgx0.png"}
+	\caption{}
+	\label{fig:xgx0}
+\end{figure}
+
+\par 然后，通过几层全连的网络连接将这个高维稀疏向量压缩成一个稠密低维向量，在这个向量空间内，通过计算query与doc向量的cosin相似度来衡量相关程度。训练的目标是对同一query下取1个点击doc作为正样本， 随机4个未点击doc作为负样本，让正负样本的区分尽可能大：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/xgx1.png"}
+	\caption{}
+	\label{fig:xgx1}
+\end{figure}
+
+
+由于DSSM对文本embedding时没有考虑term的顺序信息，又陆续提出了采用Convolution和LSTM对文本embedding，可以保留词序信息。其中，Convolution是实现方式通过对query或doc用固定大小滑动窗口取片段，对每个片段内文本用word-hash+dnn压缩， 然后取max-pooling表示整个query或doc向量。
+\par 此外， 无论是Convolution还是LSTM对文本embedding, 都涉及到通过词或局部片段的向量生成整个句子的向量，比较简单粗暴的方法是直接取sum、avg或者max等。微软的学者们进一步做了改进，提出利用Attention机制来学习各个词组合成句子向量的权重。以LSTM-DSSM为例，LSTM在每个时间步(term)上输出的隐向量h, 输入给一个attention网络$s(h)$, 输出权重后softmax归一，然后对每个词的隐向量加权平均生成句子向量。$s(h)$的参数和相关性目标一起来训练。这种Attention机制也比较弱，因为不同的query对同一个doc的“关注”点可能是不一样的, 这种方式只能对doc生成唯一的向量。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{"fig/xgx2.png"}
+	\caption{}
+	\label{fig:xgx2}
+\end{figure}
+
+
+最近，微软的学者们又提出了一个观点：query与doc的相关程度是由query里的term与doc文本精准的匹配，以及query语义与doc语义匹配程度共同决定。而且，term匹配与term在doc中的位置和紧密度有较大关系。因此，他们用一个local model来表达term匹配程度，distribute model表达语义匹配程度，把这两个子模型放在同一个模型来训练。distribute model类似与DSSM来学习语义匹配关系。Local model的输入是一个$n_q*n_d$的矩阵$m$，$n_q$是query中term个数，$n_d$是doc中term个数，位置$m(i,j)=0 or 1$表示query里的第i个词是否与doc里的第j个词匹配，对这个输入矩阵通过convolution抽取特征并向量化。据其实验结果，这种结合term匹配信息的模型效果要优于DSSM等语义模型。   
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/xgx3.png"}
+	\caption{}
+	\label{fig:xgx3}
+\end{figure}
+
+
+\subsection{Google相关工作}
+Google的学者在用convolution对文本向量化是相比CDSSM做了些改进。Convolution的方法参考了Nal Kalchbrenner等对文本用卷积来做分类的方法。       首先，对句子中的每个词做embedding, 然后将词的embedding concat起来组合成一个矩阵，有点类似图像的表达。然后，在这个矩阵上通过不同feature map抽取特征，然后pooling生成一个维度的向量来表达句子。 对Query和Doc的语义向量， 再通过一个bilinear的模型计算其语义相似度：$sim(x_q,x_d) = x_q * M * x_d$。 最终，语义相似度与其它相关排序特征，以及query和doc向量一起作为决定排序的因素，通过pointwise的DNN模型来训练。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/xgx4.png"}
+	\caption{}
+	\label{fig:xgx4}
+\end{figure}
+
+\subsection{IBM Waston实验室相关工作}
+      问答系统有很多种类型，其中给定一个Question和候选Answer，从候选Answer中挑选最合适的答案，这个过程与信息检索中的相关性模型非常相似。Waston实验室在InsuranceQA数据集实验了上述类似的模型，并综合CNN和LSTM的优势，提出了几种有意思的混合模型:
+
+(1) Convolutional-pooling LSTM 用一个Bi-LSTM作为word embedding的方法，然后word embedding concat成矩阵表达句子，用卷积来抽取组合特征作为question和anwser的向量表达，再计算cosin loss.
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/xgx5.png"}
+	\caption{}
+	\label{fig:xgx5}
+\end{figure}
+
+（2）Convolution-based LSTM
+先对原始文本用卷积捕捉局部的N-gram信息， 然后在这个基础上用Bi-LSTM来学习更大范围的上下文依赖关系。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/xgx6.png"}
+	\caption{}
+	\label{fig:xgx6}
+\end{figure}
+
+     (3) Attentive-LSTM 相比LSTM-DSSM, 在Attention机制上做了些改进，与NMT的Attention机制接近，即：通过Answer中的词向量加权平均生成整个Answer的向量时，每个词的权重是由Question向量和词向量来决定的。Question的表达仍由其所有词向量的avg或sum，max来表示。 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/xgx7.png"}
+	\caption{}
+	\label{fig:xgx7}
+\end{figure}
+
+\subsection{其它相关工作}
+      上述工作主要集中在如何更好生成Query和Doc向量表达，如何设计两个向量comparision function以计算相似度也有很多种方法。Shuohang Wang总结了6种方法：NN, NTN, EUCCOS, SUB, MULT ，SUBMULT+NN。分别对query和doc向量计算乘、减、欧式距离、cosin、bilinear、concat，以及这几种计算的组合。 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/xgx8.png"}
+	\caption{}
+	\label{fig:xgx8}
+\end{figure}
+
+另外在机器阅读理解也有很多类似工作，本文就不展开描述了。下面介绍下我们的相关工作。  
+\subsection{我们的工作}
+我们对淘宝搜索做了大量的语义改写后(参加Search2.0之QueryRewrite, https://www.atatech.org/articles/66690)，matching不仅局限于term的匹配了，下面分别从数据和模型介绍下我们的工作。
+\subsubsection{训练数据}
+深度模型通常大量的训练数据，而对商品搜索相关性这个问题，获取大量高质量训练数据并不容易。网页搜索通常直接采用点击数据作为是否相关的label，在商品搜索上不是很有效：用户点击行为与价格、图片、个性化偏好等很多因素相关，仅依赖点击数据对相关性样本有太多噪声； 而采用人工标注数据，准确率相对较高，但受时效性、成本等因素限制较大。因此我们结合了这两种方式来获取训练数据：
+\begin{enumerate}
+\item 用多维度规则对行为数据采样，获取大量(亿级别)准确率相对较低的训练数据，先用这些数据training一个较好的模型；
+\item 再采用数量相对少(100w)、准确率高的人工标注数据fine-tuning之前training好的模型。
+\end{enumerate}
+ 
+\subsubsection{模型}
+模型设计主要考虑的几个因素：
+\begin{enumerate}
+\item 淘宝上Query和商品标题存在大量长尾词，尤其大量数字和英文组合的货号、型号、容量等，分词无法穷尽。仅通过词来对query和标题embedding会损失很多信息，需要考虑字符维度。
+\item 商品除了标题外了，还有图片、类目、属性等信息可以利用。
+\item 工程实现线上计算要轻量，两个向量的compare function要控制计算复杂度。
+\end{enumerate}
+我们现在采用的模型如下：   
+\begin{enumerate}
+\item 对Query和标题向量我们采用DNN + Char-LSTM组合的方式：DNN能高效地学到TOP词的embedding, Char-LSTM能捕获到较长尾的字符组合。引入Char-LSTM后模型比较难训练，我们使用query和标题文本语料pretraining LSTM-AutoEncoder, 获得比较好的初始参数；同时TOP词的embedding采用word2vec初始化，模型能更快收敛。
+\item 在商品标题的embedding上增加了一个类目预测的multi-task, 使得不同类目的商品在向量空间内有更好的区分度，对模型效果和收敛速度都有比较好的提升。
+\item online ranking对latency要求比较高，除了工程优化外，模型上也有优化空间。在我们数据上实验发现compare function中全连层的深度和宽度对模型影响比较大。全连层宽一些效果会比较好，但计算量增加会很大；借鉴ResNet全连层设置窄一些，并加深模型，可以保证效果同时较大减少计算量。
+\end{enumerate}
+我们抽样部分query抓取线上排序结果， 与该模型排序后TOP30人工评测GOOD比例提升1.31\%。该模型现在正在线上BTS中。           
+\par 体验demo:http://sqi.alibaba-inc.com/MatrixQ/index.htm?id=28  5.3 后续计划
+\par 商品除了标题和类目，图片也是很重要的信息来源，后续加入图片信息，同时也在尝试用query和商品向量做召回，实现multi-modal检索。
+\par 另外，Attention机制也是一个被证明重要的提升点。受限于线上ranking latency的要求，不可能对每个商品标题根据query来计算其"关注"的部分，但可以引入一些self-attention的方法来生成更好的标题向量。   参考文献：
+\begin{enumerate}
+\item Shen, Y., He, X., Gao, J., Deng, L., \& Mesnil, G. (2014). A Latent Semantic Model with Convolutional-Pooling Structure for Information Retrieval (pp. 101–110). Presented at the the 23rd ACM International Conference, New York, New York, USA: ACM Press. http://doi.org/10.1145/2661829.2661935
+\item Services, E. U. C. (2014). Learning Deep Structured Semantic Models for Web Search using Clickthrough Data, 1–8.
+\item Deep Sentence Embedding Using Long Short-Term Memory Networks: Analysis and Application to Information Retrieval. (2016). Deep Sentence Embedding Using Long Short-Term Memory Networks: Analysis and Application to Information Retrieval, 1–25.
+\item Zhai, S., Chang, K.-H., Zhang, R., \& Zhang, Z. M. (2016). DeepIntent: Learning Attentions for Online Advertising with Recurrent Neural Networks
+(pp. 1295–1304). Presented at the the 22nd ACM SIGKDD International Conference, New York, New York, USA: ACM Press. http://doi.org/10.1145/2939672.2939759
+\item Mitra, B., Diaz, F., \& Craswell, N. (2016). Learning to Match Using Local and Distributed Representations of Text for Web Search, 1–9.
+\item Improved Representation Learning for Question Answer Matching. (2016). Improved Representation Learning for Question Answer Matching, 1–10.
+\item Feng, M., Xiang, B., Glass, M. R., Wang, L., \& Zhou, B. (2015). APPLYING DEEP LEARNING TO ANSWER SELECTION: A STUDY AND AN OPEN TASK , 1–8.
+\item Severyn, A., \& Moschitti, A. (2015). Learning to Rank Short Text Pairs with Convolutional Deep Neural Networks (pp. 373–382). Presented at the the 38th International ACM SIGIR Conference, New York, New York, USA: ACM Press.
+\item Kalchbrenner, N., Grefenstette, E., \& Blunsom, P. (2014). A Convolutional Neural Network for Modelling Sentences
+\item Wang, S., \& Jiang, J. (2017). A COMPARE-AGGREGATE MODEL FOR MATCHING TEXT SEQUENCES, 1–11.
+\item Lin, Z., Feng, M., Santos, dos, C. N., Yu, M., Xiang, B., Zhou, B., \& Bengio, Y. (2017). A STRUCTURED SELF-ATTENTIVE SENTENCE EMBEDDING, 1–15.
+\end{enumerate}
+
+\section{Multi-Modal Matching Model}
+\subsection{背景}
+在淘宝商品搜索系统中，除了词维度的matching外， 在语义维度matching我们分别在query改写和深度语义相关性模型上做了一些工作，参考[1][2]。这些工作主要还是局限在文本域上。然而，商品搜索相比较网页搜索一个很大的差别在于，商品除了拥有标题文本以及结构化属性外，每个商品还必须包含商品主图：一方面，这些图片是对文本信息很好的补充；另一方面，我们认为对于风格、款式等一些抽象的概念，图片比文字可能更具有表达力。如下图，这些Query下对应的商品通过文本域上的改写和语义相关性，已经无法召回和计算相关程度：Query中标红的词无法匹配，标题中也不存在语义相关的描述。          
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm0.png"}
+	\caption{}
+	\label{fig:mmm0}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm1.png"}
+	\caption{}
+	\label{fig:mmm1}
+\end{figure}
+
+
+
+因此，如何融合商品上文本、图像多个模态的信息来表达的商品，并解决Query与商品Matching问题，是一个很有价值和意思的课题。我们和idst图像团队的同学一起做了一些探索。
+\subsection{模型}
+受益于Deep Learning强大的表达能力，不仅在文本、图像这两个领域取得很大进展，一些跨模态的应用也被越来越多的研究，包括：image caption, visual qa, sentiment analysis, content-based multi-modal retrieval等。基本思路是将自然语言和图像两种模态的数据经各自的编码模型转换为同一特征空间的向量，然后针对特定任务设计特征向量之间loss函数。
+\par 我们所采用的网络设计如下图所示，此系统主要包括：文本编码模型、图像编码模型和图像文本匹配关系的学习，下面逐个进行介绍。 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm2.png"}
+	\caption{}
+	\label{fig:mmm2}
+\end{figure}
+\begin{itemize}
+\item 文本编码：文本编码的作用就是将用户搜索query转为定长实数向量$V_{text} \in R^D$，该向量能够反映用户语义信息，便于和图像编码向量进行比较。我们在实验中尝试过LSTM、Char-CNN等结构，最后综合考虑性能和效率采用了如上图所示的分词DNN编码结构。其首先对query进行分词，每个分词的word embedding初始参数随机；分词长度固定，不足补零，过长直接截断；后续接入两个全连接层，经过Batch Normalization和L2Norm作为文本特征编码输出。整个文本所有参数random初始化，并利用梯度下降进行训练。
+\item 图像编码：图像编码模型主要是将图像文件转化为能反应图像内容的特征向量$V_{image} \in R^D$。图像CNN基础模型采用ResNet152, 由于图像CNN参数过多，如果采用end2end方式进行模型训练，batch size受限于显存大小不能设置太大、同时训练耗时会很长。因此，我们利用淘宝商品主图、以叶子类目为分类目标，对 ImageNet pre-trained ResNet 152进行finetune，最终训练得到CNN基础特征模型。图文模型中的图像编码特征是在分类CNN特征基础上进行transfer，transfer和文本编码网络类似，包括全连接层、Batch Normalization和L2Norm。
+\item 图像文本匹配关系学习:我们利用内积来衡量图像和文本之间的相似性，即： $$S(V_{image, V_{text}}) = V_{text} * V_{image}$$
+\end{itemize}
+
+整个网络的目标函数采用ranking loss：
+ $$L=\sum\{ max(0,  \mu - S(V^i_{image}, V^i_{text}) + S(V^j_{image}, V^i_{text}) + max(0, \mu - S(V^i_{image}, V^i_text) + S(V^i_{image}, V^j_{text})) \}$$
+其中${i,i}$图像和文本是正对样本，${i,j}$是负对样本，为正对和负对之间相似性得分差异性的一个常数阈值，可根据不同应用场景进行设定。通过最小化上述目标函数，可使得相关的图像和文本之间具有较大的相似性得分，而不相关的图像和文本之间的相似性得分则较小。
+淘宝商品搜索具体实现：
+\begin{itemize}
+\item 选择服饰行业的9个一级类目；
+\item 图像基础模型即使用淘宝商品主图、以9个一级类目对应的叶子类目为分类目标训练得到；
+\item 图文模型训练数据选自用户搜索点击log, 第一版BTS模型共利用6000w左右图文pair；
+\item 最终输出特征向量维度为256维。
+\end{itemize}
+BTS上线前我们抽取了一批服饰行业query进行了相关性评测，评测从图像相关性、商品相关性两个角度进行，结果如下： 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm3.png"}
+	\caption{}
+	\label{fig:mmm3}
+\end{figure}
+Top1-5的图像相关性达到88\%，商品相关性69\%。
+
+\subsection{模型改进A ： 挖掘图像信息表达}
+
+我们在实验中发现，图像编码特征对Cross Modal search的性能影响很大。对于淘宝商品而言，除了主图、多图数据也是对同一商品的更多展示信息。而且图像基础特征提取可以放在离线进行，因此离线部分模型可以做的相对复杂一些。相比现在BTS采用的模型，改进如下图所示： 
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm4.png"}
+	\caption{}
+	\label{fig:mmm4}
+\end{figure}
+
+商品item的多张图像基础特征向量表示为：$\{ U^k_{item} \}^K_{k=1}$，利用如下self-attention机制学习权重，最终得到统一商品向量表示：  
+$$h^k=\sigma(W_uU^k_{item}) \odot \sigma(W_m m_{item})$$ 
+$$\alpha_k = softmax(W_hh^k)$$ 
+$$V_{item} = F_v(\sum^K_{k=1}\alpha_kU^k_{item})$$ 
+其中 
+$$m_{item} = \sum^K_{k=1}U^k_{item}$$
+下面是一些利用visual self-attention学到的多图权重分布，可以看到一些文字图、细节、吊牌图权重基本会比较小，符合我们的期望。  
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/mmm5.png"}
+	\caption{}
+	\label{fig:mmm5}
+\end{figure}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/mmm6.png"}
+	\caption{}
+	\label{fig:mmm6}
+\end{figure}
+
+在我们自己的一个评测集上，此改进模型相比线上BTS模型效果提升明显，mean rank指标从49降低到27(越小越好)。
+ 
+\subsection{模型改进B: 图文联合解决图像不可识别意图}
+前面我们主要解决的是图像上可识别的搜索query，对于一些含有图像上比较难以处理的tag (e.g. 品牌、型号)，我们的文本编码词典暂时未覆盖。下一步我们要考虑的是同时解决图像不可识别tag，而这些信息而从商品标题、属性进行挖掘。基本的网络结构如下图所示： 
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm7.png"}
+	\caption{}
+	\label{fig:mmm7}
+\end{figure}
+
+其中query利用QueryTagging对分词进行打标，将图像不可识别的tag独立进行编码(对应图中的Slice)；商品编码信息来源除了图像，同时加入标题、属性等信息。对于query中不包括相应tag，则对应Slice编码为全0，这样采用内积相似性度量情况下，不会影响该query其他部分的正常搜索召回。该版本模型还在进行调试训练，实际效果敬请期待。
+\subsection{线上实验 }
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm8.png"}
+	\caption{}
+	\label{fig:mmm8}
+\end{figure}
+该模型在线应用面临一个较大的挑战：给定一个Query向量，如何快速与海量商品集合计算相似度，确保精度地召回TOP K个相似商品。靠谱的主搜工程团队同学已实现了基于图近邻查找算法NSG,参考[3]，从500w商品向量中检索top1200个商品仅需4ms, 召回精度99.8\%。而且，与之前主搜的文本倒排召回完美无缝结合，对算法同学使用起来很方便。
+BTS效果：第一阶段覆盖了服务行业下9个一级类目的中长尾Query，占整体PV大约8\%。这部分覆盖Query因为文本召回结果有限，通过召回了更多相关商品，用户可以有更多优质商品挑选，对于引导成交效果非常明显，成交笔数能提升10个点以上：  
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.4\linewidth]{"fig/mmm9.png"}
+	\caption{}
+	\label{fig:mmm9}
+\end{figure}
+
+\subsection{总结}
+一期覆盖了流量较大的服饰行业，后续将继续扩展行业。当然，有些行业可能也不适合做图文检索，例如：3C、家电等行业。
+\par 现在商品的文本和图像特征融合还做的比较简单、粗糙，后续会继续深耕模型，期望能做到商品文本、属性和图像真正的互补和融合；同时，商品的表达不仅限于召回阶段的应用，后续和语义相关性模型融合实现端到端的Multi-modal Matching。
+\newline 参考：
+\begin{enumerate}
+\item https://www.atatech.org/articles/66690 Search2.0之Query Rewrite
+\item https://www.atatech.org/articles/85492 DL语义相关性以及在淘宝搜索中的应用
+\item https://www.atatech.org/articles/95738   [4] Nam, H., Ha, J.-W., \& Kim, J. (2016). Dual Attention Networks for Multimodal Reasoning and Matching
+\item He, K., Zhang, X., Ren, S., \& Sun, J. (2017). Deep Residual Learning for Image Recognition
+\item Morency, L.-P. (2017). Tutorial on Multimodal Machine Learning
+\item Zadeh, A., Chen, M., Poria, S., Cambria, E., \& Morency, L.-P. (2017). Tensor Fusion Network for Multimodal Sentiment Analysis
+\end{enumerate}
+
 
 
 \begin{thebibliography}{99}

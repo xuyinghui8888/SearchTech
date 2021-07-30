@@ -1,97 +1,556 @@
 
-\chapter{ 反作弊技术@淘宝 }
+\chapter{ 反作弊技术 }
 \thispagestyle{empty}
 
 \setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
-\noindent\shadowbox{
-\begin{tcolorbox}[arc=0mm,colback=lightblue,colframe=darkblue,title=学习目标与要求]
-%\kai\textcolor{darkblue}{1.~~强化学习．} \\ 
-
-\end{tcolorbox}}
+\noindent\shadowbox
+{
+	\begin{tcolorbox}[arc=0mm,colback=lightblue,colframe=darkblue,title=学习目标与要求]
+	
+	\kai\textcolor{darkblue}{1.商品信息管理}
+	
+	\kai\textcolor{darkblue}{2.反作弊算法}
+	
+	\kai\textcolor{darkblue}{3.卖家理解和应用}
+	
+	\end{tcolorbox}
+}
 \setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
-\kai\textcolor{darkblue}{1.基于GraphMining炒信识别技术．}
 
-\kai\textcolor{darkblue}{2.搜索反作弊舆情系统架构．}
+\section{商品信息管理}
 
-\end{tcolorbox}}
-\setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
+商品是电商平台的核心，用户来到淘宝天猫购物，不论是搜索场景、推荐场景还是其他场景，从海量的商品中挑选自己中意的商品时，往往会考虑商品很多维度的信息。譬如商品的品牌、风格、类目、尺码等基本属性；商品主图，详情页图片等图像信息、商品标题的文本信息；甚至还包括商品的销量、评价等消费者打分的一些信息。平台上沉淀的商品信息绝大部分都来自商家本身，少部分来自消费者。商品的一连串属性信息，包括商品标题，商品类目，商品图片等都是商家自行发布，而商品销量、评价等来自消费者。由于阿里平台电商的商业竞争模式，商家在发布商品时错填、乱填等信息质量上面投机取巧比比皆是，包括商品质量造假，销量、评价的不真实，不论是从还商家一个公平竞争的平台方面考虑，还是提升消费者在平台的粘性和效率而言，平台对商品信息质量的管控都是十分必要的。
 
-淘宝搜索为了维护公平、公正的搜索排序环境，严厉打击商家刷销量行为。下面简单介绍以下两种基于GraphMining的虚假交易识别。
-
-\section{物流网络} 
-
-\subsection {基于物流网络识别虚假交易}
-
-当前淘宝炒信卖家为了提升自己的销量，进行虚假交易行为，随着虚假交易识别的精准性，卖家和炒信买家通过盗用正常用户的运单、地址信息，模拟真实交易，影响搜索排序，商品评价体系，最终影响正常用户购物决策。如图 13.1，蓝色点为买家、红色点为商品，存在复杂交易网络，在如下交易网络中我们加入物流信息节点，进行虚假交易识别
+一个完整的风控系统是非常复杂的，不仅包括数据层，所谓的特征层，还包括算法、业务以及落地层，其中最核心的模块是算法模型层。算法模型层包括黑/白名单，规则策略，算法模型等。传统的风控模型主要是以挖掘特征为主，利用传统的机器学习方法，譬如朴素贝叶斯/GDBT/决策树等，优点是模型可解释，缺点也很明显，对数据的建模能力一般，召回不够，风控覆盖不足。近几年深度学习（DL）大热，尤其在图像、语音、自然语言领域，DL模型在很多问题上能做端到端（End2End）的训练，对数据的建模能力更强，具有扩大召回的能力，因此风险识别中我们也采用了一些复杂的机器学习模型。搜索商品风险管理的整体技术架构流程图如\ref{fig:chap12_risk_graph}。
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.5\linewidth]{"fig/lspam"}
-	\caption{交易网络示意图}
-	\label{fig:lspam}
+	\includegraphics[width=0.8\linewidth]{"FIG/riskpool.png"}
+	\caption{商品风险体系结构}
+	\label{fig:chap12_risk_graph}
 \end{figure}
 
-物流网络识别算法如下:
+\begin{itemize}\setlength{\itemsep}{-6pt}
+	\item
+	商品理解，商品的特征挖掘。
+	\item
+	风险算法模型，通过构建风险模型，提高对多种风险类型的识别覆盖。
+	\item
+	风险类型，商品理解和算法模型的结合，我们覆盖了炒信、假货、类目错放等多种风险类型。
+	\item
+	风险治理，覆盖平台多个重要场景，包括搜索端的流量调控，商品端的风险商品处罚，以及平台治理部进行商品剔除等。
+\end{itemize}
 
-1.原始交易网络边：$AC$、$BD$
+上图是商品信息管理中的大致风险分类以及识别时使用的算法模型。由于商品信息管理风险的复杂和多样性，很多风险类型是不同的部门合作完成，感谢常龙、独悟、谦言等合作团队。下面简单介绍几个风险类型的识别情况。
 
-2.物流运单网络边：$AX$、$XC$、$BX$、$XD$
+\subsection{类目错放}
 
-3.同人网络边：$AB$、$CD$、$BC$在实际网路中同人网络最多出线如上几条边情况，假如$AC$出现同人边，则为卖家自炒作
+\subsubsection{概述}
 
-4.信息盗用炒作识别技术方案:1).依照同人、物流、交易网络构建物流网。2).由于一笔运单号在正常情况下只能被一对买卖家使用，将问题转化为经典图染色问题。3).实际算法中采用DFS遍历网络节点，并进行染色，产出运单号中多次染色节点，如图 13.2
+淘系是基于类目体系来管理、发布和运营商品的，将商品放到不同类目下，一方面可以更好地方便行业运营管理该类目下的商品，提高商品的规范性；另一方面通过类目关联，类目预测等技术手段方便消费者搜索到满意的商品。商品实际发布是由卖家主导的，因此会出现卖家将商品放到一个错误的类目的情况，即类目错放。
+类目错放大致分为三种情况，第一，无意错放，新的卖家可能不了解类目体系，或者类目边界模糊；第二，故意错放，有的商品放到相似的类目下可能会获得更多的收益；第三，恶意错放，淘系的电商平台，不同的类目可能有不同的管理规范，譬如监管力度等，有些卖家就借机通过将商品放到其他类目，获得不当利益。为了还卖家一个公平的竞争平台，还消费者一个健康发展的生态环境，类目错放的识别和治理变得不容小觑。
+
+\subsubsection{识别}
+
+对全网商品标题进行文本方面的分析，以分类算法为基础，对商品类目错放进行识别与预测。本文以朴素贝叶斯为例，对于给定的训练数据集，输入样本x，设$U_i$,$x=\left \{ a_{1},a_{2},...,a_{m} \right \}$ 为一个待分类项，其中$a_{i}$为x的一个特征
+设类别集合为$C=\left \{ y_{1},y_{2},...,y_{n} \right \}$ 需要计算一个样本x所属类别概率，因此需要分别计算：
+$P\left ( y_{1} |x\right ),P\left ( y_{2} |x\right ),...,P\left ( y_{n} |x\right )$
+当$P\left ( y_{k} |x\right )=max\left \{ P\left ( y_{1} |x\right ),P\left ( y_{2} |x\right ),...,P\left ( y_{n} |x\right ) \right \}$ ，则判断样本x属于第k类。
+为了计算样本属于每个类别的概率，根据贝叶斯公式变换为
+$P\left ( y_{i} |x\right )=\frac{P\left ( x|y_{i} \right )P(y_{i}))}{P\left ( x \right )}$
+由于分母对于所有类别为常数，因此只需要将分子最大化
+即$P\left ( x|y_{i} \right )P(y_{i})=P\left ( a_{1} |y_{i}\right )P\left ( a_{2} |y_{i}\right )...P\left ( a_{m} |y_{i}\right )=P\left ( y_{i} \right )\prod_{j=1}^{m}P\left ( a_{j}|y_{i} \right )$
+此时问题转换为求每个类别下不同特征出现的概率\\
+\begin{center}
+	$P\left ( a_{1} |y_{1}\right ),P\left ( a_{2} |y_{1}\right ),...,P\left ( a_{m} |y_{1}\right );$\\
+	$P\left ( a_{1} |y_{2}\right ),P\left ( a_{2} |y_{2}\right ),...,P\left ( a_{m} |y_{2}\right );$\\
+	......\\
+	$P\left ( a_{1} |y_{n}\right ),P\left ( a_{2} |y_{n}\right ),...,P\left ( a_{m} |y_{n}\right )$\\	
+\end{center}
+
+类目错放的整体流程如图\ref{fig:chap12_cate_level}
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\linewidth]{"FIG/cate_level.png"}
+	\caption{类目错放流程图}
+	\label{fig:chap12_cate_level}
+\end{figure}
+
+\subsection{评价排序}
+
+\subsubsection{概述}
+
+商品评价体系提供了商品、物流、服务等一套的客户体验反馈机制，在整个电商系统中占据着重要角色。在大部分消费者的购物链路中，评价内容具有至关重要的参考价值。没有哪个消费者愿意为负评如潮的商品买单，一些商家正因为看到了此商机，在评价体系中作弊，譬如放入大量的广告信息，为了抢占流量，选择去刷好评，在评价环节中获得不当流量等手段。商品评价体系能够天然的作为一种监督和参考机制，因此净化评价体系，打击黑色交易，还消费者一个真实、可靠、有效的生态评价系统显得尤为重要。
+
+\subsubsection{识别}
+
+商品评价识别模型包括离线和实时模型，其中离线模型的样本主要是人工标注，卖家反馈和评价操作日志，特征主要是一些评价内容相关的文本特征，消费者属性特征以及行为特征。大致框架见下图\ref{fig:chap12_remark_offline}。
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\linewidth]{"FIG/remark_offline.png"}
+	\caption{评价排序离线模型}
+	\label{fig:chap12_remark_offline}
+\end{figure}
+
+商品的虚假评价的离线识别在生态评价系统的打造过程中起着尤为重要的作用，然而存在的问题是，由于离线模型不能及时的获取用户、商品、店铺等维度的实时信息，因此仅用离线模型，商家可能已经取得一部分利益之后才会被识别处罚。所以我们需要一个实时识别虚假评价的模型，结合商品属性、店铺属性以及用户商品店铺的长期属性，实时识别与实时处罚，及时遏制商家获得不当流量。实时的技术框架如图\ref{fig:chap12_remark_online}
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.5\linewidth]{"fig/lspam2"}
-	\caption{物流网络识别示意图}
-	\label{fig:lspam2}
+	\includegraphics[width=0.8\linewidth]{"FIG/remark_online.png"}
+	\caption{评价排序离线模型}
+	\label{fig:chap12_remark_online}
 \end{figure}
 
-\section{行为网络模型} 
-行为网络模型基于用户交易过程中的相关日志数据结合相关交易网络关系识别异常交易。行为网络模型分为用户-商品异常行为分类与基于交易图网络关系的传播算法两部分。
+\subsection{图片质量}
 
-在假设正常用户与异常用户在交易过程中具有不同的行为特征的前提下，用户-商品异常行为分类模型基于用户特征、商品特征与用户-商品组合特征预测用户$u$在商品$i$的交易过程中的异常概率值$w_{ui}$，即$w_{ui}=f(\vec x_u, \vec x_i, \vec x_{ui})$，其中$\vec x_u=(x_{u,1},...,x_{u,n})$为用户维度相关属性特征，$\vec x_i=(x_{i,1},...,x_{i,m})$为商品维度相关属性特征，$\vec x_{ui}=(x_{ui,1},...,x_{ui,l})$为用户与交易过程中被购买商品的组合特征，$f(\vec x)$为可以相关业务决策模型也可以是通用的XGBoost，GBDT，DNN等分类模型。淘宝反作弊目前会借助于相关深度学习神经网络算法代替部分人工的特征工程，从海量的日志数据中提取抽象化的识别特征挖掘异常交易行为。
+\subsubsection{概述}
 
-异常行为分类模型基于用户与商品维度相关特征计算非正常人群的概率，在正常用户与异常用户群体具有较大区分度时具有较高的准确率，但是模型仅仅考虑用户与商品之间的关系，没有考虑用户以及商品交易网络的全局信息，基于交易图网络关系的迭代算法为模型引入了图关系维度的相关信息，其思想为将预测模型得到的异常概率值$w_{ui}$作为用户$u$对商品$i$的作用，由传播迭代得到用户与商品在全网的异常影响分，如下所示：
+图片是消费者了解商品的第一道窗口，图片质量是商品质量的重要组成部分，一张好的图片可以提高消费者购买的概率。在淘宝天猫平台上，很多商家为了提高商品关注度，经常会在商品图像上嵌入宣传、解释、促销、兼职等文本信息，我们称之为图像牛皮癣。而对于阿里平台而言，要综合考虑页面展示的美观、规范效果，更要防控图像上文本信息带来的虚假宣传、违规促销等问题。因此，商品图像上是否包含文本信息、文本信息所占图像的比例、在图像中的位置等成为了监测的重点。传统的牛皮癣识别主要是通过人工审核方式去识别图像中的文本信息，但是面对每天千万级被的数据量，人力成本和时间成本都是无法承受的。当前深度学习在语音识别和图像分类领域，相较传统方法有了非常大的提升，它已成为学术界炙手可热的课题，这在追求新技术的互联网行业表现的尤为突出。深度学习是机器学习的一个分支，它的主要特点是通过多层次的学习而得到对于原始数据的不同抽象层度的表示，进而提高分类和预测等任务的准确性，即深度学习在分类与预测问题的求解具有显著的优势。我们目前使用深度学习算法，结合淘宝天猫图像数据，对牛皮癣的识别进行了升级。
 
+\subsubsection{识别}
+
+图片牛皮癣的识别我们分为检测和识别两块。
+
+\begin{bfseries} 
+	检测模块
+\end{bfseries}
+
+倾斜的文字常常难以检测，我们提出了一种全新的端到端的检测网络SegRPN，用于检测任意角度倾斜的文字。不同于前任的方法，我们将分割融入到检测网络中，前人的方法大多是基于整张图像来生成文字候选区域，我们只在有文字的区域生成文字候选区域，这样能够极大的提高效率和速度。 同时我们利用分割的结果拟合角度信息，可以进行任意角度文字的回归，兼具时效性和准确性。 该方法在ICDAR2015的数据集上取得了0.8023的F-measure，在所有公开论文中达到了最高水平。检测框架如图\ref{fig:chap12_npx_detection}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{"FIG/npx_detection.png"}
+	\caption{牛皮癣检测技术框架图}
+	\label{fig:chap12_npx_detection}
+\end{figure}
+
+\begin{bfseries} 
+	识别模块
+\end{bfseries}
+
+传统的OCR识别流程大体是先把文字区域进行切分，把切分好的字块送入单字符识别器来进行识别打分，然后用动态规划的算法把这些字块进行最优化组合从而得到是别的文本行答案。这种方法十分依赖于切分算法的好坏，如果切分不好的话很难得到准确的识别结果。我们尝试使用了基于序列学习的整行识别模型，使用Convolution +LSTM+CTC的方法可以避免复杂的分割过程，实现端到端的训练和预测。如图1所示，这套端到端的系统包括自底而上的三部分：最底层的卷基层用来对输入图像自动提取一个特征序列；然后这个特征序列会被送入中间的RNN网络从而对特征序列的每一帧给出相应的预测；最后面的transcription layer用来把每一帧的预测结果转换成我们需要得到的结果序列， CTC loss能够有效的利用字符序列的上下文信息进行序列解码，提高识别率。识别框架如图\ref{fig:chap12_npx_recognition}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\linewidth]{"FIG/npx_recognition.png"}
+	\caption{牛皮癣识别技术框架模型}
+	\label{fig:chap12_npx_recognition}
+\end{figure}
+
+\begin{bfseries} 
+小结\\
+\end{bfseries}
+商品是阿里整个平台的核心，因此保证商品信息的健康发展是我们义不容辞的责任。2018年1月10号上午阿里巴巴对外发布《2017年阿里巴巴知识产权保护年度报告》年报显示，目前阿里在假货等风险防控上运用图像算法、生物实人认证等9大“黑科技”，每时每刻都在对平台上的近20亿商品进行识别。
+
+\section{DeepGraph算法平台}
+
+从淘宝成立的第一天开始，阿里就在与作弊势力做抗争。作弊行为，包括普遍理解的刷单作弊、活动的薅羊毛，以及其他方方面面的用假的动作尝试影响推荐、排序的行为。这其中，
+炒信、刷单等虚假交易产业，甚至还会为各类网络违法犯罪活动提供犯罪工具或便利，如催生出大量虚假的高信用、高销量店铺。这些店铺有的被挂在第三方网站进行高价售卖，有的则被直接用于销售假冒伪劣产品、诈骗等违法犯罪行为。2016年10月25日，阿里巴巴联合国家发改委、工商总局、中央网信办等部门以及其他互联网公司，共同组建了“反刷单联盟”，联手打击、治理网络刷单这一社会痛点问题。
+
+阿里巴巴每年投入巨大的精力用于解决这一问题。在对抗过程中，作弊手法不断升级，反作弊的算法模型和工程系统也在不断升级。从规则到模型，从图传播到深度学习模型，从离线计算到实时识别，反作弊的模型不断优化，计算能力不断提升，召回比例也不断提高。我们搭建了基于图的DeepGraph通用算法平台，提供了包括图模式匹配、图挖掘、图传播以及深度学习等各种通用算法能力。业务上，从只覆盖交易，到覆盖曝光、点击、收藏、加购、交易、评价和物流、资金全链路，我们的反作弊能力随之一步步从走向成熟。
+
+传统的数据挖掘和机器学习多数围绕结构化数据展开，而底层存储和计算平台也根据需求为关系型数据库。其实，数据之间存在的多种多样的关联关系，例如不同实体之间的直接关联，通过计算而获得的相似性等等。这些关联关系中蕴含着大量的价值，直到最近才越来越多的被利用和挖掘出来。
+
+在阿里的场景中，也有多种多样的Graph数据——买家与商品/卖家的点击/加购/购买行为二部图、买家与买家的共同购买网络、商品与商品的共同被点击网络、买/卖家与买/卖家的设备网络等等。为了更好的支持阿里生态中多样的业务，以及对图算法的效率和效果的需求，我们基于新一代阿里自研的图计算引擎构建了DeepGraph算法平台。
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.95\linewidth]{"FIG/DeepGraph"}
+	\caption{DeepGraph体系结构}
+	\label{fig:chap12_deep_graph}
+\end{figure}
+
+
+DeepGraph算法平台中的Graph顾名思义是基于图的算法，而Deep是源于它的深度学习的能力。图
+\ref{fig:chap12_deep_graph}展示的是它的架构：DeepGraph是在BigGraph引擎提供的数据查询读写之上提供了各种图算法。这里，BigGraph是面向图数据探索和分析的一站式引擎。它结合了图存储和索引优化、高效的分布式计算框架，以及针对图计算与子图模式挖掘的并行算法，同时提供了高层描述性语言简化了图查询与自定义算法的编程。在算法层面，DeepGraph支持图模式匹配、图传播、以及其他基于图的机器学习算法等多种类型的算法，也支持Tensorflow各类接口，可以让用户自定义神经网络结构。同时，除了支持T+1天的数据更新频率，DeepGraph还具备准实时(T+n小时)及部分算法的实时能力。
+
+后面的章节里，我们将看到DeepGraph提供的图模式匹配、基于图浅层数据挖掘、图传播以及图的深度学习这些算法，是如何服务于反作弊业务的。
+
+
+\subsection{图模式匹配}
+
+图模式匹配(Graph Pattern Matching)是对图进行快速搜索匹配给定的子图模式。DeepGraph平台提供各种自定义的子图匹配，提供两种匹配方式：计数(count)和枚举(enumerate)，并且囊括了多种子图定义方式。
+
+普遍意义上对特定的图模式进行计数或者枚举的问题通常是NP-hard的问题，因此在大规模的图数据上如何进行分布式和快速计算是一大难题。而基于阿里自研的图引擎开发的DeepGraph对重要的图模式，针对性地优化计算，极大程度的优化了性能——数小时内可在边数十亿的大规模图上进行全联通子图的匹配和枚举。
+
+DeepGraph提供两种类型的子图模式：
+\begin{enumerate}
+	\item 同类型的边，查找给定拓扑结构: 例如完全子图 (Clique)、环(Ring)等。
+	\item 查询指定节点类型的子图: 例如Meta-path\cite{Pathsim}，和多条Meta-path组成的Meta-structure。比如在文献引用(Citation)数据中，包含多种类型的节点，$A$是作者，
+	$P$是文章，$V$ 是刊物，那么$A-P-A$
+	 就是共同作者关系，而$A-P-V-P-A$ 表示两位作者的文献发表在同一个期刊上。这两者都是两个作者之间的关系，这两条路径均为Meta-path，而Meta-structure则为同时具备这两个Meta-patch的两个$A$之间的结构。图\ref{fig:chap12_graph_pattern} 中就展示了这种Meta-structure。
+\end{enumerate}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.25\linewidth]{"FIG/GraphPattern"}
+	\caption{文献引用图(Citation Graph)上的一种Meta-structure举例}
+	\label{fig:chap12_graph_pattern}
+\end{figure}
+
+经过大量计算优化的DeepGraph高效的应用于多个场景中，包括资金网络、物流网络等各个方面的数据。在日常和大促活动时，我们借此定位出炒信作弊、虚假交易、营销作弊等的资金链的网络结构。
+
+特别值得一提的是，我们发现完全二部子图(Biclique)是甄别作弊行为非常有区分度的图模式。2017年的双11，我们实现了离线、准实时、实时的Biclique模式匹配。大幅促进了我们的反作弊识别能力。双十一当天，我们处理交易数据刷单检测，在0-1点峰值时期，1.5小时内完成计算，后续每45分钟内计算完每小时的千万级别边。
+
+
+\subsection{图聚类算法}
+
+物以类聚，人以群分。无论是在推荐、广告、还是在反作弊业务中，聚类算法的应用场景可谓非常广泛。
+在人群、商品、卖家等各个维度的信息组成的网络中，人群的行为、商品的属性在网络中呈现出明显的聚集特性。
+所谓近朱者赤，近墨者黑，在大部分情况下，我们的网络是呈现明显的社区趋同性的。
+因此，我们可以通过把图中的社区逐步逐层归并的方式，更清晰明了的了解我们的网络结构。
+
+普通的层次聚类(Hierarchical Agglomerative Clustering)算法需要计算两两实体之间的距离，不适用于大规模的数据。考虑到图数据的特殊性，我们与原数据技术及产品部的数据科学家团队合作，改进了层次聚类算法，提出了：Localized-HAC 层次聚类算法，并且将其应用于图的多层级聚类中。不同于HAC需要考虑实体两两之间的距离，Localized-HAC算法只需要考虑图中的边，每次合并图上最小边对应的两个节点。每当合并两个子簇后，需要更新形成的新的边的权重。令A，B表示合并之前的两个簇，C表示A，B合并之后形成的新的簇，A的邻居为$N_A$，B的邻居为$N_B$，则簇C到$N_A\cup N_B$中的每个簇都形成一条新的边。如图\ref{fig:chap12_hac}所示，左图为合并之前的图，红色边为最短边，右图为将红色边对应的簇进行合并之后形成的新的图，蓝色边为新添加的边。产生新的边之后，我们计算并更新新产生的边的权重。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.75\linewidth]{"FIG/hac"}
+	\caption{HAC层次聚类算法，节点合并过程}
+	\label{fig:chap12_hac}
+\end{figure}
+
+
+
+为了保证大规模图聚类的效率，DeepGraph实现了并行近似实现的Localized-HAC算法。实现的基本思想是通过图扩散的方式，分布式的并行发现一些局部极大边，并在“不冲突”的情况下并行地合并这些边所对应的簇。不冲突是指，需要合并的两个簇不能影响到其它簇之间的合并。如图\ref{fig:chap12_l_hac}所示，AB和CD俩条边就是冲突的边，因为两个新生产的节点之间也需要产生邻居关系。因此，必须保证同步merge的边之间至少存在一个不变化的节点，这样新节点之间有一个safe zone间隔因而可以并行。所以AB和DE不冲突。
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.85\linewidth]{"FIG/L-HAC"}
+	\caption{HAC层次聚类算法并行化需要保证互相之间不冲突}
+	\label{fig:chap12_l_hac}
+\end{figure}
+
+
+通过同时以多个节点为中心，获取局部最短距离边，然后进行合并操作，从而实现了Localized-HAC的并行化近似实现。
+可同步merge的边必须满足一个最短路径阀值。在局部选举的过程中，依然采用的是节点报告自己所知道的最短距给邻居，并且通过多次迭代实现传播功能。事实上，每一迭代就是不断地选举局部最短距离边，并且把这个信息逐层扩散，这样就确保了在一定的路径范围内永远只选举一个最短距离边。迭代步数是可以配置的超参，显然，迭代步数越小，并行化程度就越高。事实证明，这种并行近似的方法既极大提高了算法的执行效率，又实际上保有了原Localized-HAC的精髓，达到了很好的聚类质量。
+
+通过快速有效的对图聚类算法，我们建立了系统的账号分层体系，对不同的账户的行为实行不同的管控、审查措施。于此同时，图聚类算法还提升了推荐和广告等业务的效能。2014年双十一初试效果，手机淘宝中推出双11同好页面，采用该算法产出推荐商品，当天该页面创造了UV点击率26\%，PV点击率50\%，商品加购率27\%的效果。
+
+
+\subsection{图传播算法}
+
+DeepGraph支持PageRank、SimRank、Label Propagation Algorithm、Hyperlink-Induced Topic Search，以及Factor graph等创新反作弊算法。我们将Factor graph应用于研究用户行为网络，取得了令人瞩目的研究成果\cite{crowds}，已经2018年国际World Wide Web会议接受发表。本节就将详细介绍我们对Factor Graph算法的应用成果。
+
+我们对用户行为的各种属性差异做了详尽的对比，之后我们将这些属性和用户，商品之间的关联关系用Factor Graph模型进行了整合，并基于此设计了一个分类模型来检测可能的收藏作弊行为。
+
+在最初的分析中，我们对作弊收藏行为和正常收藏行为之间的各个特征属性都做了详尽的对比，包括动作事件发生概率之间的相关系数、时间上的特征、动作序列上等等；从用户角度、商品属性角度也同样作了很多分析。这样，在大量的备选特征中比较正常行为和作弊行为的差异，筛选出其中信息熵区分度最大的环节。从效果而言，单一维度区分度还是不够明显的。
+
+接下来，我们把我们节点属性和初步分类结果作为先验概率输入到概率图模型中 (Activity Factor Graph Model, AFGM)，进行虚假收藏活动的识别。在这里，我们一共引入了三方面的特征因素，包括行为特征，用户特征和商品特征，并引入了基于用户和商品的关联因素。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.99\linewidth]{"FIG/LBP"}
+	\caption{行为、用户、商品关系上的概率图模型}
+	\label{fig:LBP}
+\end{figure}
+
+图\ref{fig:LBP}中，网络G中的一组活动节点 $V={A_1,A_2,…,A_N}$被映射到了一组因子节点$Y={y_1,y_2,\dots,y_N}$。G中的活动有一部分是有标签的，因此$Y$可以被分为有标签的$Y_L$
+（训练集）, 没有标签的$Y_U$（测试集）。 AFGM 可以根据训练集中已知的因子节点来推测未知的节点是否是作弊。根据上面对行为属性，用户属性和商品属性的分析，我们定义了以下3种因子：
+
+\begin{itemize}
+\item 行为属性因子：$f_b (y_i│b_i)$表示在给定行为属性向量$b_i$的情况下，$y_i$的后验概率。
+\item 用户属性因子：$f_u (y_i│u_i)$表示在给定用户属性向量$u_i$的情况下，$y_i$的后验概率。
+\item 商品属性因子：$f_p (y_i│p_i)$表示在给定商品属性向量$p_i$的情况下，$y_i$的后验概率。
+\end{itemize}
+
+另外根据前述的发现，作弊商品/用户的作弊行为具有持续性和集中性，所以我们定义了两种相关性因子：
+\begin{itemize}
+	\item $g_u (y_i│C_u (y_i))$ 表示基于用户的行为相关性，其中$C_u (y_i )$是与在概率图中与$y_i$连接的相关性因子节点的用户集合。
+	\item $g_p (y_i│C_p (y_i))$ 表示基于商品的行为相关性，其中$C_p (y_i )$是与在概率图中与$y_i$连接的相关性因子节点的商品集合。
+\end{itemize}
+
+有了这些因子之后，AFGM中的行为概率就可以表达为：
+\begin{equation*}
+P(Y│G) =\frac{1}{Z}\prod_{i}f_b(y_i│b_i) f_u (y_i│u_i ) 
+ f_p (y_i│p_i) g_u(y_i│C_u (y_i)) g_p (y_i│C_p (y_i))
+\end{equation*}
+模型的目标是将$P(Y|G)$最大化。
+
+在模型求解中，我们使用最大对数似然作为我们的目标函数，并且使用随机下降法来计算我们的梯度。为了克服计算复杂度比较大的问题，我们利用loopy belief propagation（LBP）算法来求一个近似解。在每次迭代过程中，我们两次运用LBP算法，第一次用于估计位未知节点的边际概率，第二次是用于估计所有节点的边际概率。有了这个边际概率之后，上述的两个期望可以近似为将所有相关节点的边际概率之和。当我们沿着梯度下降的方向更新参数直至收敛，就学到了最终的参数估计。最终用这个最终的参数估计再在预测集上用LBP算法估计一个边际概率，这个边际概率就会作为一个节点是否为作弊的预测值。
+
+我们模型最终的输出结果，比原先的识别方法覆盖率高了300\%。可以看到，利用概率图模型比传统方法结果要好很多。
+
+
+\subsection{图深度学习}
+
+用深度学习来处理方式图上的节点信息，以获得图上节点在连续向量空间的嵌入表达(Graph Embedding)，或者进一步进行其他机器学习任务，是一个相当热门且有用的方向。基于不同的目标和复杂度，DeepGraph支持了多种嵌入算法，包括：
+\begin{enumerate}
+	\item RandomWalk-based Graph Embedding算法，例如DeepWalk\cite{deepWalk}， Node2Vec\cite{node2vec}等
+	\item Deep-learning-based Graph Embedding算法，例如SDNE\cite{SDNE}，DNGR\cite{DeepNN}等
+	\item 其他Graph Embedding算法，例如Structure2vec\cite{str2vec}，LINE\cite{LINE}等
+\end{enumerate}
+
+这些算法在阿里的很多业务场景中均有应用：
+\begin{enumerate}
+	\item 反作弊业务中，利用对用户和商品的作弊二部图进行Graph Embedding得到的向量作为特征，提升实时反作弊召回率200\%。
+	\item 搜索排序业务中，利用买家和卖家的购买行为二部图，并用买卖家自身的属性特征对Embedding做类正则化限制，从而提取购买行为的主导特征，并用该特征对买家人群进行分人群优化。AB-test结果为，对测试人群达到提升货单价8\%，成交金额1\%的效果。\
+	\item 推荐业务中，优化底层Item-to-item相似度计算，影响推荐的底层粗召回，离线评测在准确率不变的情况下，与现存最优baseline相比，提升召回3\%。
+\end{enumerate}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.99\linewidth]{"FIG/DGEmbedding"}
+	\caption{图深度学习：嵌入算法模型}
+	\label{fig:DGEmbedding}
+\end{figure}
+
+\subsection*{反作弊之路}
+
+2017年6月20日上午10时30分，全国首例组织刷单炒信入刑案，在杭州余杭区法院开庭审理。犯罪嫌疑人在电商平台有偿吸纳商家入会，组织刷单炒信，最终以非法经营罪被判处五年六个月有期徒刑，并处罚金90万元。
+这一次判决对我们有着里程碑式的意义，是对我们反作弊工作的认可和支持，也对恶意炒作、恶拍、恶评等行为起到了震慑、警示作用。
+
+随着反作弊逐步成为全社会的共识，越来越多的力量团结起来，对刷单炒信等行为进行围追堵截。
+我们期待着继续在这个战场上贡献自己的技术能量，同时和其他各界的力量联合起来，共同打击作弊行为，
+维护诚实守信、公平竞争、依法经营的互联网经济秩序。
+
+
+
+\section{卖家理解和应用}
+阿里巴巴平台上有数千万的商家，如何有效的实现管理是一个问题。有效管理卖家就要先理解卖家，曾经平台理解卖家都是从若干外化的规则指标，比如说星钻冠、DSR、评价，但是因为这些指标过于简单直接，很容易就被刷到很高的评分，这就给平台和消费者在理解卖家上造成了困扰，因此在大数据面前如何更深入、更全面、更准确的理解卖家就显得尤为重要。本节内容就会从卖家信用和卖家能力矩阵两个项目上为大家介绍淘宝平台如何理解和应用卖家的，两者的关系是递进关系，卖家信用体系偏重于商家诚信、风险预估，卖家能力矩阵是在信用的基础上进一步提升，更偏重于商家的能力和运营理解。
+
+\subsection{卖家信用体系}
+卖家信用体系是利用大数据对卖家的一次全方位的透视，是对现有信用体系的一次升级，是响应国家针对电商领域信用体系建设的回应\cite{gov_credit}。信用体系的建立首先在立足淘宝平台自身的特点基础上，吸收借鉴了其他行业在信用上的实践经验。
+\begin{itemize}
+\item
+信用的组成：借鉴国际征信体系的“5C1S"定义，考核维度映射符合淘宝的本地化特点，定义五个考核方面：合规、经营、评价、资质、稳定。
+\item
+使用的目标：反映消费者与卖家的交易风险，风险指标组成：品质退款率、纠纷率、平台处罚。
+\item
+信用感知：后台应用对卖家来说准入的门槛有意义，前台应用对于卖家的每个等级或每个分数都很重要。
+\end{itemize}
+
+\subsubsection{算法框架}
+
+算法框架包含特征抽取模块、一级建模模块、二级建模模块、策略和同机网络优化模块:
+\begin{itemize}
+\item
+特征抽取模块：对于每一个卖家，他所产生的交易数据会关联到其他的实体，比如说买家和平台，每天服务器会记录下所有的这些信息，同时会周期性的导入到云计算平台。针对这些海量的数据，该模块负责抽取出跟卖家实际相关的，并且能够具有强解释性的核心特征，比如说卖家基础信息，服务的信息，买家-卖家的行为信息等。这些抽取出来并精心处理过的特征会最终流入到一个虚拟的特征池中。
+\item
+一级建模模块：该模块是是分成若干个分类器，每个分类器使用的算法都是GBDT，同时每个分类器都是独立的。对于每一个独立的分类器，会从基础的特征池中选取一部分特征，并以该维度的定向指标作为最终的目标函数（比如说服务类维度，选择用户满意度或者退款率），使用GBDT算法建立模型拟合最终的目标函数。
+\item
+二级建模模块：该模块是将一级模型拟合出来的每个维度的特征值作为特征，使用LR算法，训练出原始的卖家信用值。初始的目标函数会设为跟现有体系的相差不大，即未作弊的高信用值的大卖家，重点突出高信用、大卖家，以保证体系的平稳过渡。
+\item
+策略和同机网络优化模块：对于模型拟合出来的卖家初始的信用值，有一些策略上的调整，比如说白名单用户。同时对于一些新小卖家会有一个根据以往的开店经历的一个初始分的平滑，保证新小卖家有完成冷启动的能力。
+\end{itemize}
+
+\subsubsection{业务框架}
+业务框架分为数据来源、映射关系、信用产品、应用场景几块，如图\ref{fig:credit_business}
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{"fig/credit_business"}
+	\caption{卖家信用体系业务框架图}
+	\label{fig:credit_business}
+\end{figure}
+
+\subsubsection{数据展示}
+卖家信用数据目前已经在卖家后台对卖家开放，数据展示情况如图\ref{fig:credit_show}
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{"fig/credit_show"}
+	\caption{卖家信用体系数据展示图}
+	\label{fig:credit_show}
+\end{figure}
+
+\subsubsection{总结}
+卖家信用数据是对卖家整体信用的综合考评，是对旧版的信用的一种升级，解决了标签太分散、可信度不高的问题。由于本节中的一些技术方法都是常用的算法，所以就没有展开叙述。
+
+%\newpage
+
+\subsection{卖家能力矩阵}
+
+卖家业务一向是既简单又复杂的，简单在于数据量小，实时性不强；复杂在于粒度太粗，难以应用；所以内部商家运营一直以来都没有一个综合的卖家看板供参考，因此就有了三位一体这个项目，三位一体强调人、货、场的结合，而人这一点指的就是如何识别和理解卖家，卖家能力矩阵应用而生。卖家能力矩阵是在卖家信用的基础上更加深入的认知卖家，在提升了指标的丰富度的同时，以更复杂的技术实现了更精准的卖家理解，是内部运营的重要手段。
+
+\subsubsection{背景}\label{ux80ccux666f}
+
+业务背景
+
+\begin{itemize}\setlength{\itemsep}{-6pt}
+	\item
+	僧多粥少，平台有1000w的商家，但是流量不足以支撑这么多商家，需要宏观调控。
+	\item
+	行业核心运营的商家集中头部，规模化程度不够，也没有很强的卖家运营抓手。
+	\item
+	以商品为导向的运营，算法思路，虽然效率上优化，但也会导致比如黑搜，抄款，高价值买家流失等长期性平台伤害。
+	\item
+	渠道各自为政，行业重点运营商家在各渠道上无法统一，很难形成合力。
+\end{itemize}
+
+技术背景
+
+\begin{itemize}\setlength{\itemsep}{-6pt}
+	\item
+	卖家能力众多，各条线基本都会有一套卖家能力，但是由于业务不同，场景不同，所以导致每个地方的卖家能力很难得到拓展或者复用
+	\item
+	算法目标设置简单，退款线的就以退款作为目标，成交线的就以成交作为目标，比较单一并不能作为全面衡量卖家的手段
+\end{itemize}
+
+\subsubsection{目标}\label{ux76eeux6807}
+
+单维度能力
+
+\begin{itemize}\setlength{\itemsep}{-6pt}
+	\item
+	服务能力：衡量卖家在售前、售中、售后链路中的服务态度以及质量的能力
+	\item
+	供应能力：衡量卖家货品质量、丰富度、供应链相关的能力
+	\item
+	销售能力：衡量卖家在成交、成交质量以及一些销售手段的
+	\item
+	流量转化能力：衡量卖家的流量承接、转化以及分渠道的能力
+	\item
+	流量获取能力：衡量卖家在主动\&被动获取流量的能力，主要包括但不限于粉丝、加购、收藏、新老客运营等
+	\item
+	内容运营能力：衡量卖家在全内容渠道上的一些运营、产出的能力
+	\item
+	陈列能力：衡量卖家店铺内的图片的一致度、美观度等的能力
+	\item
+	买家认可能力：从种子卖家出发，消费者投票筛选的策略
+	\item
+	规范能力：衡量卖家在经营规范上的能力
+\end{itemize}
+
+综合能力
+
+\begin{itemize}\setlength{\itemsep}{-6pt}
+	\item
+	综合分：衡量一个卖家在平台环境中的成长、经营、潜力的能力
+	\item
+	价值卖家：满足全网Top的卖家，在卖家能力、潜力、调性、特色上都具备实力
+	\item
+	高端卖家：在高分、高潜的基础上，偏向于服务高端用户的卖家
+\end{itemize}
+
+\subsubsection{算法框架}\label{ux7b97ux6cd5ux6846ux67b6}
+
+本文主要介绍的是服务能力、供应能力、销售能力、流量转化能力、流量获取能力、内容运营能力等六个能力的算法流程，由于陈列能力、买家认可能力、规范能力是采用其他完全不同的算法，所以就不在本文中展开叙述了，本文着重介绍的是能力矩阵中主要的算法。在介绍之前，先了解一下卖家能力矩阵整体的算法框架，如图\ref{fig:slr_struct}
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{"fig/slr_struct"}
+	\caption{卖家能力矩阵算法架构图}
+	\label{fig:slr_struct}
+\end{figure}
+
+\textbf{特征工程}
+
+\begin{itemize}
+	\item
+	特征选择：每个单维度都有代表性的特征，选取了每个维度核心和基础的特征，大概200维的dense特征
+	\item
+	特征处理：全网有1000w的卖家，500w的卖家处于沉寂状态，同时这些卖家在各个类目还分配非常不均匀，针对不同类目的情况，使用一些贝叶斯平滑处理数据以保证数据能够更有效的使用
+	\item
+	特征归一：之前的各个场景下的卖家能力或者卖家分的好处是一个场景下的卖家基本都是同一类的卖家，所以不存在特征的gap问题，但是如果全网的卖家放在一起去比较就会出现这个问题，比如说女装卖家的销量和大家电的销量完全不在一个数量级，所以这就需要将特征处理到统一level上；在选择归一的方法上有两个，一个是数值的归一，另外一个是rank值代替，rank值有一个好处是能够弥补类目中过大的gap带来的贫富差距，所以最终选择了以特征值的百分位来替代原有特征
+	\item
+	初始权重收集：广泛发动群众，收集行业小二标注的特征优先级，基于此转化为初始权重。这样做的目的主要是在卖家的定义不清晰的基础上，没办法量化出一些目标去学习，所以就基于行业小二的经验给出初始值，采用类似active
+	learning的方式去学习
+\end{itemize}
+
+\textbf{模型选择}
+
+由于没有明确的目标去优化或学习，所以真正让算法run起来就只能通过人工的去标注样本，但是标注样本是一个非常庞大的工作，虽然我们最终也调动了全行业的小二去标注，但是对于最简单的算法往往也是九牛一毛。但是卖家的数据又决定了他不是一个非常实时的数据，我们无需采用过分的训练去拟合或者逼近，往往行业小二的经验已经能够描述其中大部分的卖家能力，而对于一些边界比较模糊的卖家在使用人工标注的方式进行进一步的学习区分，因此我们在构建模型时采用了两步走的策略：
+\begin{itemize}
+\item
+抽取核心特征用于标注优先级，优先级转化为权重，加权回归的结果就是卖家能力初始结果
+\item
+基于行业评测标注的难点，我们在构造数据集的时候采用的是pair对的形式，人工标注时候只需要标注1、0、-1即可，恰好有一个模型跟这个训练样本非常契合，就是基于pairwise的RankNet\cite{ranknet}算法
+\end{itemize}
+
+RankNet算法需要定义真实的概率和预测概率，即如下：
 \begin{equation}
 \begin{aligned}
-V_I^{(t)} & = W_{UI}^T \cdot V_U^{(t-1)} \\
-V_U^{(t)} & = W_{UI}   \cdot V_I^{(t)} \\
-V_U^{(t)} & = \frac{V_U^{(t)}}{\lVert{V_U^{(t)}}\rVert}, V_I^{(t)} = \frac{V_I^{(t)}}{\lVert{V_I^{(t)}}\rVert}\\
+& P_{ij}  =P(U_{i}>U_{j})=\frac{1}{1+e^{-\sigma(s_{i}-s_{j})}} \\
+& \overline{P}  =\frac{1}{2}(1+S_{ij}) , 
+\begin{tiny}
+	S_{ij}=\left\{
+		\begin{array}{lr}
+			1 & S_{i}>S_{j} \\
+			0 & S_{i}=S_{j} \\
+			-1 & S_{i}<S_{j}
+		\end{array}
+	\right.
+\end{tiny}
 \end{aligned}
 \end{equation}
 
-其中，$W_{UI,ui}=w_{ui},u \in S_u, i \in S_i$为用户商品行为矩阵，$S_u$为用户集合，$S_i$为商品集合。图传播算法得到的用户$u$的传播分$v_u$与商品$i$传播分$v_i$。传播模型相关收敛性证明如下所示：
 
+然后优化真实概率和预测概率的交叉熵即可，即：
 \begin{equation}
 \begin{aligned}
-A & = W_{UI}^T \cdot W_{UI} \\
-V_u^{(t)} & = \frac{1}{\prod_{j=0}^{t-1}\lVert AV_u^{(j)} \rVert_1}\lambda_i^t[\alpha_1v_1+\sum_{i=2}^{\lvert U \rvert}(\frac{\lambda_i}{\lambda_1})^t\alpha_iv_i]
+	C = -\overline{P}_{ij}logP_{ij}-(1-\overline{P}_{ij})log(1-P_{ij})
 \end{aligned}
 \end{equation}
 
-用户与商品的传播分数能代表用户在交易网络中的异常严重程度，基于$v_i$与$v_u$值可以直接定义用户与商品发生交易的异常分数$s_{ui}$，也可以结合异常分类模型值$f(\vec x)$，训练高阶分类模型$w^{'}_{ui}=f^{'}(f(\vec x), v_u, v_i)$，同时考虑到用户与商品的交易网络边权重$W_{UI}$发生变化，可不断迭代传播算法即采用如下更新公式：
-
+权重更新过程如下，即：
 \begin{equation}
 \begin{aligned}
-v_u \leftarrow GraphModel(f(\vec x), v_u, v_i) \\
-v_i \leftarrow GraphModel(f(\vec x), v_u, v_i)
+	w_{k}&=w_{k}-\eta \frac{\partial C}{\partial w_{k}} \\
+	\frac{\partial C}{\partial w_{k}}&=\frac{\partial C}{\partial s_{i}} \frac{\partial s_{i}}{\partial w_{k}}+\frac{\partial C}{\partial s_{j}} \frac{\partial s_{j}}{\partial w_{k}} \\
+	&=\sigma(\frac{1}{2}(1-S_{ij})-\frac{1}{1+e^{-\sigma(s_{i}-s_{j})}})(\frac{\partial s_{i}}{\partial w_{k}}-\frac{\partial s_{j}}{\partial w_{k}}) \\
+	&=\lambda_{ij}(\frac{\partial s_{i}}{\partial w_{k}}-\frac{\partial s_{j}}{\partial w_{k}}) \\
+	\lambda_{ij}&=\frac{\partial C(s_{i}-s_{j})}{\partial s_{j}}=\sigma(\frac{1}{2}(1-S_{ij})-\frac{1}{1+e^{-\sigma(s_{i}-s_{j})}})
 \end{aligned}
 \end{equation}
 
-当$v_u$与$v_i$值最终收敛后获得较为稳定的用户以及商品维度的全局异常交易分数，基于稳定的异常分数定义$s_{ui}$值，算法伪代码如下所示：
+对于最终的总分，以成交、货单价、UV价值作为多目标函数，目前采用了比较简单的方式直接合并，即：
+\begin{equation}
+S=\alpha Gmv+\beta Price+\gamma UVValue
+\end{equation}
+那么最终的整个算法结构如图\ref{fig:slr_algo}
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{"fig/slr_algo"}
+	\caption{卖家能力矩阵算法结构图}
+	\label{fig:slr_algo}
+\end{figure}
 
-%\section{资金网络传播模型}
+\textbf{数据验证}
+
+数据验证分为两部分，单维度能力校验和综合分的校验 
+\begin{itemize}
+\item
+单维度能力的评测当时发动了整个行业的小二进行标注，前后持续一个月时间，虽然标注的样本有限，但是加上行业的初始输入经验已经能够满足当时的需求了
+
+\item
+综合分的校验没有采用人工评测的手段，因为综合分是糅合了很多的维度，比单维度更难以去评测，因此这里我们提出了一个基于改进Adar算法（将同构的图转化为异构的图）的方法去评估，首先是提出买家和卖家的相似度，如下：
+\begin{equation}
+R_{ij}=\frac{1}{\vert S_{i} \vert}+\alpha \sum_{k\in S_{i}}\frac{l(r_{kj})}{log\vert B_{k}\vert},r_{kj}=\frac{B_{k}\cap B_{j}}{B_{k}\cup B_{j}}
+\end{equation}
+然后以seller = topic，buyer = word，Rij =
+词频的三元组输入LDA进行双聚类，取每个topic下主题相关性的top30\%的卖家，取其平均分作为该topic的卖家群体估值，按照卖家群体分支将矩阵重新排序，在固定品质买家基础上，卖家综合分会跟买家的趋势非常相关！
+\end{itemize}
+
+\subsubsection{总结}\label{ux603bux7ed3ux4e0eux5c55ux671b}
+
+卖家能力矩阵是一个比较底层的数据，是三位一体的基础，更是很多工作开展和分析的依托，所以卖家数据的准确和有效就会变得比较重要，为了保证最终的数据真实可用，我们并不仅限于用了本文中所提到的方法，还有一些关系拓展的、时序平滑的、风险扩展的算法，由于只是卖家能力矩阵的组成部分，这里就不展开介绍。
+
 
 
 \begin{thebibliography}{99}
 \addcontentsline{toc}{chapter}{\protect\numberline{}{\hspace{-1.5em}参考文献}}
 \markboth{参考文献}{参考文献}
+\bibitem{1} Casey, R.G. and Lecolinet, E., 1996. A survey of methods and strategies in character segmentation. IEEE transactions on pattern analysis and machine intelligence, 18(7), pp.690-706.
+\bibitem{LSTM} Hochreiter S, Schmidhuber J. LSTM can solve hard long time lag problems[C]//Advances in neural information processing systems. 1997: 473-479.
+MLA.	
+\bibitem{2}Buta, Michal. "FASText: Efficient unconstrained scene text detector." 2015 IEEE International Conference on Computer Vision (ICCV). IEEE, 2015.
+\bibitem{3}Tian, Zhi, et al. "Detecting Text in Natural Image with Connectionist Text Proposal Network." European Conference on Computer Vision. Springer International Publishing, 2016.
+\bibitem{4}Dollár, Piotr, et al. "Fast feature pyramids for object detection." IEEE Transactions on Pattern Analysis and Machine Intelligence 36.8 (2014): 1532-1545.
+\bibitem{5}Ren, Shaoqing, et al. "Faster R-CNN: Towards real-time object detection with region proposal networks." Advances in neural information processing systems. 2015.
+\bibitem{6} R-FCN: Object Detection via Region-based Fully Convolutional Networks.
+\bibitem{7} Liu, Wei, et al. "SSD: Single Shot MultiBox Detector. ECCV 2016.
+\bibitem{8} Shi, Baoguang, Xiang Bai, and Cong Yao. "An end-to-end trainable neural network for image-based sequence recognition and its application to scene text recognition." arXiv preprint arXiv:1507.05717 (2015).
 \bibitem{1} C. Burges, T. Shaked, etc.., Learning to rank 
 using gradient descent. In Proceedings of the 22nd international 
 conference on machine learning, ACM
+\bibitem{deepWalk} Perozzi, B., Al-Rfou, R., \& Skiena, S. (2014, August). Deepwalk: Online learning of social representations. In Proceedings of the 20th ACM SIGKDD international conference on Knowledge discovery and data mining (pp. 701-710). ACM.
+Chicago	
+\bibitem{Pathsim}Sun, Y., Han, J., Yan, X., Yu, P. S., \& Wu, T. (2011). Pathsim: Meta path-based top-k similarity search in heterogeneous information networks. Proceedings of the VLDB Endowment, 4(11), 992-1003.
+\bibitem{crowds}Su, N., Liu, Y., Li, Z., Liu, Y., Zhang, M. \& Ma, S. (2018) Detecting Crowdturfing "Add to Favorites" Activities in Online Shopping. In World Wide Web Conference.
+\bibitem{node2vec}Grover, A., \& Leskovec, J. (2016, August). node2vec: Scalable feature learning for networks. In Proceedings of the 22nd ACM SIGKDD international conference on Knowledge discovery and data mining (pp. 855-864). ACM.
+\bibitem{SDNE}Wang, D., Cui, P., \& Zhu, W. (2016, August). Structural deep network embedding. In Proceedings of the 22nd ACM SIGKDD international conference on Knowledge discovery and data mining (pp. 1225-1234). ACM.
+\bibitem{str2vec} Ribeiro, L. F., Saverese, P. H., \& Figueiredo, D. R. (2017, August). struc2vec: Learning node representations from structural identity. In Proceedings of the 23rd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 385-394). ACM.
+\bibitem{DeepNN} Cao, S., Lu, W., \& Xu, Q. (2016, February). Deep Neural Networks for Learning Graph Representations. In AAAI (pp. 1145-1152).
+\bibitem{LINE} Tang, J., Qu, M., Wang, M., Zhang, M., Yan, J., \& Mei, Q. (2015, May). Line: Large-scale information network embedding. In Proceedings of the 24th International Conference on World Wide Web (pp. 1067-1077). International World Wide Web Conferences Steering Committee.
+\bibitem{gov_credit} http://www.creditchina.gov.cn/home/xinyongyanjiu/201711/t20171108\_93362.html
+\bibitem{ranknet} Chris Burges, et al. Learning to Rank using Gradient Descent, ICML, 2005.
 \end{thebibliography}
 
- 
+

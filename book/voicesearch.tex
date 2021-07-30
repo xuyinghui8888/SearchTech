@@ -1,0 +1,1964 @@
+
+\chapter{ 导购产品 }
+\thispagestyle{empty}
+
+\setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
+\noindent\shadowbox{
+\begin{tcolorbox}[arc=0mm,colback=lightblue,colframe=darkblue,title=学习目标与要求]
+%\kai\textcolor{darkblue}{1.~~强化学习．} \\ 
+
+\end{tcolorbox}}
+\setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
+
+\section{语音交互}
+
+语音交互是一种自然的用户交互方式。现在在手淘中，我们只能识别用户输入语音的文字，把它转换成简单的关键词查询。未来，用户通过语音可以完成购物的整个流程，包括逛聚划算、天猫超市等各种频道；通过语音交互挑选满意的商品；查看自己的购物车、收藏夹；直接支付；查看物流进度；直到最后的评价等等。我们将能识别用户搜索的意图，包括商品查询，如：“3岁小孩的奶粉”，“新款连衣裙”，“学生穿的T恤”，业务查询，如：“打开购物车”，“打开聚划算”，“付款”等等。用户可以不断细化、修改他的搜索需求，仿佛手淘就是他的私人购物助理，无论说什么，我们都能听得懂、做得到。这就是智能语音搜索！
+
+语音交互方式与传统的文字交互方式的不同在于，语音交互往往是使用口语语言的、而非关键词形式的，而且语音交互更倾向于多轮交互。在手淘中的产品形式如下：
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/voicesearch1"}
+	\caption{语音搜索产品形式}
+	\label{fig:voicesearch1}
+\end{figure}
+
+用户在每次输入后，搜索结果页中会有相应的反馈，比如提示你“我们为您找到了纯色、有质感的连衣裙”，或者展示一个筛选框，让你做进一步的购物比较。直接在搜索结果页中和用户交互，是一种最自然的购物交互体验。
+
+	\subsection{系统架构}
+	
+	为了实现智能语音搜索的目标，需要建立一个完整的淘宝购物知识图谱，利用它进行意图的识别、商品知识的推理、商品的召回排序、交互信息的展示、以及各种服务的到达。总体架构如下图：
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.9\linewidth]{"fig/voicesearch2"}
+		\caption{语音搜索系统整体架构}
+		\label{fig:voicesearch2}
+	\end{figure}
+
+用户输入的语音经过语音识别后，先转换为文字。然后进行意图识别，把用户的自然语言的查询转换成结构化的查询语言，如“我想买一件女儿穿的T恤，30元左右的”转换成“童装T恤.性别:女.价格:25~35”。在意图识别中还包括session分割，判断当前query是否是一个新的购物需求，还是在上一个购物需求中继续细化，即是否是多轮对话。对话管理模块会判断是否需要用户进一步表达购物需求，需要的话会给用户展示一些选项，如选择一些品牌或型号。知识推理模块会根据知识图谱，进一步找到准确的商品属性。如果是复杂的购物知识类的query，还会使用深度学习模型，在知识库中提取出问题的答案。最后，定位到商品属性后，会调用商品搜索引擎，找到相关的商品，或者调用需要的服务等。
+
+\subsection{语音识别}
+
+语音识别技术就是将语音信号转换成文字的技术。语音识别的过程就是求取一个最有词串的过程，这个词串就是语音信号对应的文字。按照搜索的角度来说，一个语音信号可能对应成千上万个可能的词串，而我们的目标是选择语音信号对应词串概率最大的那个词串作为识别结果，因此就是在计算后验概率P（W|O）。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/voice1"}
+	\caption{语音识别算法}
+	\label{fig:voice1}
+\end{figure}
+
+而通过贝叶斯公式，可以将后验概率P（W|O）转换成两部分的乘积，一个是似然度P（O|W），表示在当前词串的情况下所对应语音信号产生的概率，对应声学特性，即声学模型。而另外一个是词串的先验概率P（W），用来描述各种词串发生的概率，即语言模型。语音识别技术可以分解为两大模块，一个是声学模型算法，一个是语言模型算法，就像人的左手和右手，只有左手和右手配合好，才能有效工作。
+
+\paragraph{语音识别系统}
+
+一个语音识别系统应该包含下面几个部分：
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/voice2"}
+	\caption{语音识别系统}
+	\label{fig:voice2}
+\end{figure}
+
+前端处理模块（Front End Processing）的任务是提取语音特征，解码模块（Search and Decoding）是在内容空间中搜索最优的词串路径，声学模型（Acoustic Models）负责声学建模，语言模型（Language Models）负责描述语言规律，而词典（Lexicon）是链接声学模型和语言模型的桥梁。
+
+当前语音识别的主流技术是HMM+DNN的方法，相关的研究很多，这里就不再详述了。
+
+\subsection{淘宝购物知识图谱}
+
+下图是淘宝购物知识图谱的一个例子，其中蓝色方框是概念（Concept/Class），绿色方框是实体（Entity/Instance），蓝色线条是关系（Relation），黄色线条是描述（Attribute），黄色方框是描述值（Value）。（由于淘宝商品中也有属性（Property），为了避免歧义，把知识图谱中的属性称为描述（Attribute））。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/kg1"}
+	\caption{淘宝购物知识图谱}
+	\label{fig:kg1}
+\end{figure}
+
+在淘宝中，有一些重要的概念，如：类目，品类，sku，品牌，服务，属性（property）等。有一些概念有子概念（SubClass）即上下位关系，如属性（property）的子概念有风格、尺码、段位等。有一些概念之间是包含的关系（has），如一级类目和叶子类目之间。这样就构成了概念的层次结构。概念之间还有其他的关系，比如类目和风格之间有“has风格”（简称为“风格”）的关系。概念还有描述（Attribute），比如类目有“适合年龄段”的描述。
+
+概念的实例，即实体，比如类目的实例有连衣裙、风格的实例有韩版。概念之间的关系，也存在于实体之间，如连衣裙和韩版之间也有风格的关系。概念的描述，也存在于实体上，如“奶粉”有“适合年龄段”的描述。
+
+这里需要明确的是，在淘宝购物知识图谱中，并不具体描述一个宝贝，因为宝贝是不停变化的，不能作为知识。所以，我们这里只把一个具体的类目，或一个具体的风格定义为实体。利用淘宝购物知识图谱进行的推理，也只推理到一类宝贝，如连衣裙only=类目:连衣裙,品牌:only，而不是某个具体的宝贝id。
+
+\paragraph{图谱存储结构}
+
+采用RDF三元组（SPO）方式存储，即存储concept/entity之间的关系
+
+\begin{itemize}
+\item{S: subject主语，concept/entity}
+\item{P: predicate谓语，relation}
+\item{O: object宾语，concept/entity}
+\end{itemize}
+
+例子：
+
+only 连衣裙风格 甜美
+
+only isA 连衣裙品牌
+
+连衣裙 has 品牌
+
+连衣裙 连衣裙品牌 only
+
+连衣裙 连衣裙品牌 veromoda
+
+\paragraph{图谱查询语言}
+
+类目:连衣裙.连衣裙品牌.filter(档次:高端).filter(风格:甜美)
+
+支持的语法：
+
+\begin{itemize}
+\item{entity}
+\item{entity.relation}
+\item{entity.filter(relation,entity)}
+\item{entity.filter(attribute,value,equal/include)}
+\item{entity.sort(attribute,desc/asc)}
+\end{itemize}
+
+
+\subsection{意图识别}
+
+在电商搜索中，意图识别是指识别出用户query中的各个成分，包括中心品类，以及修饰品类的一些属性。在识别了query的意图之后，我们可以将query改写成结构化的查询语句去数据库召回具体的商品。
+
+在智能语音交互中，用户query的意图识别一般包括三部分：意图分类、序列标注和实体链接。
+
+\paragraph{意图分类}
+
+根据语音交互背靠的知识图谱结构，意图分类是指将一个query的意图分为三类：品类，属性和属性值。一般来说，普通的电商搜索query可以认为是第一种，属于直接问询品类。而语音交互场景下的智能搜索，除了品类意图之外，还会出现后两种分类。
+
+意图为品类的query一般直接包含了品类词，如“我想买红色的连衣裙”、“给我看看三岁孩子喝的奶粉”等，这符合单轮搜索的习惯；意图为属性的query，例如“高端的连衣裙品牌”，其真正意图是“连衣裙品牌”而非“连衣裙”，用户希望得到的是答案而非商品；意图为属性值的query更多地出现在多轮对话中，用户在上一句可能询问了连衣裙，下一句的交互可能是“看看红色的”，此时的query意图则是红色这一个属性值。
+
+意图分类是一个简单的分类问题，可以采用各种分类器。一种可行的模型是RNN+Softmax，如\ref{fig:intent}所示。将query经过分词之后每一个term的embedding作为模型的输入，embedding是在大量文本语料上提前训练的，一般采用与电商相关的语料，例如商品描述、评价语料等。模型主体是一个循环神经网络（RNN），实际应用中可以采用LSTM、Bi-LSTM等。RNN将query转化成一个特征向量，接一层Softmax输出最后的意图类别。
+
+\begin{figure}[th]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/intent"}
+	\caption{意图分类模型}
+	\label{fig:intent}
+\end{figure}
+
+
+\paragraph{序列标注}
+
+序列标注，对应自然语言处理任务中的命名实体识别，是将经过分词之后的query的每一个term进行标注，在这里我们采用基于IOB(Inside-Outside-Beginning)标签定义了7种tag：“O”(outside)、\\“PL\_B”（品类开始）、“PL\_I”（品类包含）、“PK\_B”（属性名开始）、\\“PK\_I”（属性名包含）、“PV\_B”（属性值开始）、“PV\_I”（属性值包含）。连续的开始和包含表示几个term是连起来对应一个品类（或属性、属性值）。
+
+命名实体识别常用的方法是条件随机场（Conditional Random Field），而随着深度学习的兴起，循环神经网络显示了其在表征序列型文本方面的强大能力，因此，我们可以用RNN（LSTM、Bi-LSTM等）+CRF的方法来解决序列标注，模型示意如\ref{fig:label}所示。
+
+\begin{figure}[th]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/label"}
+	\caption{序列标注模型}
+	\label{fig:label}
+\end{figure}
+
+
+\paragraph{实体链接}
+
+实体链接，是将序列标注后的query上的品类、属性名和属性值都链接到知识图谱中具体的实体上。例如“我$\|$想要$\|$买$\|$高端$\|$的$\|$宜家$\|$牌子$\|$的$\|$懒人$\|$沙发。”，在上一步标注后，我们知道“高端”、“宜家”是属性值，“牌子”是属性名，“懒人”、“沙发”连起来是一个品类词。在这一步我们需要把这几项链接到知识图谱，例如“牌子”链接到图谱上的“品牌”这一属性名，“懒人”、“沙发”链接到“懒人沙发”。实体链接的主要目的是消歧义，因为知识图谱中可能存在许多同名但是不同义的实体。
+
+实体链接一般要对待链接的mention（若干term组合，如“懒人沙发”）和知识图谱中的entity（实体）分别进行建模，提取特征向量，用以衡量匹配程度。
+
+现在比较常见的模型如\ref{fig:link}。
+
+\begin{figure}[th]
+	\centering
+	\includegraphics[width=0.8\linewidth]{"fig/link"}
+	\caption{实体链接模型}
+	\label{fig:link}
+\end{figure}
+
+虚线左边是一个mention，一般选取两个维度的特征，一个是term层面的embedding，从语料中提前训练得到，一般一个mention的term数不会太多，所以采用平均得到一个特征；另一个是context特征，是指mention所处的句子其他成分的表征，由于句子可能较长且长度不一，一般采用卷积神经网络（CNN）建模。
+
+虚线右边是描述entity的特征，一般也分为两个维度，一个如mention一样，是字面上的特征；另一个可以考虑entity在知识图谱中的结构位置信息，将与之相关联的entity进行一个建模表征，具体的网络结构要视知识图谱而定。最后将左右两边的特征向量做一个cosine相似度计算得到一个衡量链接置信度的分数。具体训练的时候可以采用Max-Margin的方式，需要生成一些负样本。
+
+\paragraph{session分割}
+
+用户在使用语音搜索购物时，往往会进行多轮对话。比如先说“连衣裙”，然后再说“红色的”，这时的query意图实际上是“红色连衣裙”。所以，我们需要判断当前query是否是在同一次购物session中。最简单的做法就是判断当前query中是否包含品类词，如果包含品类词，则是一个新的session。有的时候query并不直接包含品类词，但是有品类的意图，这时也算新的session，这就需要用到上面的意图分类了。
+
+
+\subsection{基于知识图谱的推理}
+
+在淘宝语音搜索中，很多query是知识问答类的query，如“3岁小孩适合的奶粉段位”。这种query并不是直接查询实体和属性，而是需要通过知识图谱推理才能得到答案。这种推理的方法近年来也有很多研究，一般称为基于结构化知识库的问答系统，我们需要根据问题寻找知识库中已有的一个或多个实体作为答案输出。
+
+\paragraph{知识推理}
+
+经过对query进行意图分类、序列标注和实体链接之后，我们识别出了query中需要关注的各个成分，接着我们要分析query的句法结构，确定主谓宾、定状补等语法成分，并分析各个成分之间的关系。这就是依存句法分析（Dependency Parsing）。下图是一个简单示意，经过依存句法分析，可以看出核心成为是“连衣裙”，“绿色”、“纽扣”都是修饰“连衣裙”的，而“红色”是修饰“纽扣”的。因此，经过依存句法分析，我们可以确定query的意图（品类：连衣裙），以及修饰这个意图的各个成分（红色纽扣、绿色），并去除一些无关的成分。结合上一步确定的品类、属性和属性值，就可以将query转化成一个类似SPARQL的语句查询知识图谱，并最终返回所有满足条件的连衣裙商品。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\linewidth]{"fig/dep"}
+	\caption{依存句法分析实例}
+	\label{fig:dep}
+\end{figure}
+
+\paragraph{图谱推理例子}
+
+连衣裙高端甜美品牌
+
+1 实体关系识别
+
+连衣裙（entity,类目）高端（entity,连衣裙档次）甜美（entity,连衣裙风格）品牌（concept,连衣裙品牌）。
+
+2 意图识别
+
+类目:连衣裙.连衣裙品牌.filter(连衣裙档次:高端).filter(连衣裙风格:甜美)
+
+3 知识图谱推理
+
+连衣裙.连衣裙品牌=only,veromoda,...
+
+only.连衣裙档次=高端
+
+only.连衣裙风格=甜美
+
+veromoda.连衣裙档次=高端
+
+veromoda.连衣裙风格=欧美
+
+return 类目:连衣裙,连衣裙品牌:only
+
+4岁小孩适合的奶粉段位
+
+1 实体关系识别
+
+4岁（value,适合年龄:4岁）小孩适合的奶粉（entity,类目）段位（concept,奶粉段位）
+
+2 意图识别
+
+类目:奶粉.奶粉段位.filter(适合年龄,4岁,include)
+
+3 知识图谱推理
+
+奶粉.奶粉段位=1段,2段,3段,4段
+
+1段.奶粉适合年龄=0-6个月
+
+2段.奶粉适合年龄=6-12个月
+
+3段.奶粉适合年龄=1-3岁
+
+4段.奶粉适合年龄=3-6岁
+
+return 类目:奶粉,奶粉段位:4段
+
+\paragraph{基于深度学习的图谱推理}
+
+传统的推理方法依赖与query中的实体识别，和实体关系识别，过程比较复杂，上一步的错误会影响下一步。最近也有基于深度学习的End-to-End的方法，直接从query出发，找到答案的实体。下面以An End-to-End Model for Question Answering over Knowledge Base with Cross-Attention Combining Global Knowledge\cite{1}中提出的模型为例，介绍一下知识推理系统。
+
+本模型采用了cross attention的神经网络结构，将其应用于问答任务中。首先，模型使用Freebase API识别问句中的主要实体，然后在知识库中抽取与主要实体直接连接或者二度关系（2 hop）的实体作为答案的候选集。这样可以大大减少候选答案的数量，在保证较高召回的同时极大地减少计算代价。
+
+接下来，利用基于cross attention的神经网络来评判问题与候选实体之间的匹配程度。假设问题$q=(x_1, x_2, \cdots, x_n)$由$n$个词组成。如图\ref{fig:kb-qa}，模型使用双向LSTM循环神经网络来对问句进行特征表示，得到了每个时刻词的隐层表示$(h_1, h_2, \cdots, h_n)$。同时对于每个答案，使用了四种特征来描述：答案实体$a_e$、答案关系$a_r$、答案类型$a_t$、答案的上下文$a_c$。每种特征都采用分布式向量来表示，分别是$e_e$、$e_r$、$e_t$、$e_c$。在得到了问题和答案的表示后，模型计算了他们之间双向的attention信息，即上文中提到的cross attention。
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width=0.8\linewidth]{"fig/kb-qa"}
+	\caption{基于cross attention的神经网络结构}
+	\label{fig:kb-qa}
+\end{figure}
+
+答案到问题（A-Q）的attention计算形式化如下
+
+\begin{gather}
+	\alpha_{ij}=\frac{\exp(w_{ij})}{\sum_{k=1}^{n}\exp(w_{ik})} \\
+	w_{ij}=f(W^T[h_j;e_i]+b)\\
+	q_i=\sum_{j=1}^{n}\alpha_{ij}h_j
+\end{gather}
+
+其中$e_i\in\{e_e, e_r, e_t, e_c\}$。可以看到，与机器翻译中的概念类似，$q_i$对应的是答案的某个特征关于问句的上下文向量。那么问句与答案的某个特征的相似度可以如下得到
+
+\begin{gather}
+	S(q, e_i)=h(q_i, e_i)
+\end{gather}
+
+其中$h(\cdot)$表示向量的内积。
+
+在问题到答案（Q-A）的attention计算上，模型认为不同问题的答案对于各个特征的侧重是不一样的，这个”侧重“即可按attention来建模。
+
+\begin{gather}
+	S(q, a)=\sum_{e_i\in\{e_e, e_r, e_t, e_c\}}\beta_{e_{i}}S(q, e_{i}) \\
+	\beta_{e_{i}}=\frac{\exp(w_{e_{i}})}{\sum_{e_k\in\{e_e, e_r, e_t, e_c\}}\exp(w_{e_{k}})} \\
+	w_{e_i}=f(W^T[\hat{q};e_i]+b) \\
+	\hat{q}=\frac{1}{n}\sum_{j}^{n}h_{j}
+\end{gather}
+
+其中$\beta_{e_{i}}$表示每种答案特征的重要性。模型借此对上文中计算得到的相似度进行加权平均，得到问句与答案的匹配打分。模型的训练采用的是max margin形式的损失函数，使用候选集中的错误答案作为负样本。
+
+与这个模型类似，其他大部分基于深度学习的结构化知识库问答方法也将研究核心聚焦与问题与答案的匹配度计算，其中选取和计算答案特征的方法是重要的不同点。同时，也有部分模型基于传统的语义解析的思想，利用深度模型改进语义解析的效果，从而提升后续答案查询和推理的效果。
+
+
+\subsection{对话管理}
+
+对话管理（DialogManage）模块的任务是决定系统如何回复给定的用户输入，
+例如，向用户提供信息，向用户发出询问以确认系统理解，或者请求用户换一种句型表达需求。
+为了给用户提供信息，对话管理器通常需要查询知识库，同时它还需要考虑对话历史所提供的信息。
+例如，DM 模块可能根据对话历史上下文发出询问请求以补充缺失数据。
+
+总结来说，DM模块的角色包含三个：
+
+\begin{itemize}
+	\item 保存并且更新对话的上下文状态（state tracking）；
+	\item 和后台的知识图谱和任务模型进行交互；
+	\item 决定系统下一步选择的策略（action selection）。
+\end{itemize}
+
+对话管理模块模式可以有多种：rule-based, plan-based和基于增强学习的。
+
+Rule-based的对话管理一般包含Frame-based的方法，其基本思想是填槽位（Slot Filling）。
+该方法可以在当前对话轮中填一个或者多个槽位，也可以覆写或修正前面对话轮的填充内容。
+基于Frame的对话管理系统还有一些衍生系统，最著名的就是CMU的agenda系统。
+
+Rule-based的话管理模式都需要领域专家设计并编写对话方案，
+该策略会增加对话系统的设计开发成本，同时也会降低系统的可维护性。
+为了克服这些局限性，近来出现了基于机器学习的对话管理系统，
+包括了plan-based和基于强化学习的模型。
+这种方式有两个主要的优点：
+
+\begin{itemize}
+	\item 第一，可以将不确定性表示引入到模型中，相对基于规则的系统，
+	其对语音和语义理解的噪音有更好的鲁棒性。
+	\item 第二，这种框架具有自动学习功能，可以极大的降低人工开发成本。
+\end{itemize}
+当然，这种方法也存在缺点，首先我们需要收集大量的对话数据，
+然后还需要对这些数据进行标注。
+
+得益于近几年深度学习的发展，可以使用一种端到端的对话系统模型，
+把模型表示成从对话历史到系统决策的映射，
+并使用encoder-decoder模型来训练整个系统。
+Plan-based的系统使用了监督学习的模式，因此需要大量的训练数据，
+并且可能会探索不到训练数据中不存在的模式，
+模型可能达不到最优的策略。
+
+传统的SDS的主要组成部分如图\ref{fig:dialog_manager}所示。
+\begin{figure}[h]
+	\centering
+	\includegraphics[totalheight=1.8in]{fig/dialog_manager.jpg}
+	\caption{SDS的主要组成部分} 
+	\label{fig:dialog_manager}
+\end{figure}
+
+自然语言理解模块（NLU）将语言转换成抽象语义表示，即用户对话行为，
+而后系统更新其内部状态，然后系统通过决策规则确定系统行为，
+最后语言生成模块（NLG）将系统行为转化为自然语言字符串。
+其中，状态变量$s_t$包含跟踪对话过程的变量，以
+及表示用户需求的属性值（又称为slots）。
+
+现在会使用端到端的强化学习方法来进行Dialog State Tracking（DST）和Policy Learning。
+如图\ref{fig:end2end_dialog}所示，
+系统包含用户模拟器（左半部分）和基于神经网络的对话管理器（右半部分）。
+在用户模拟器中，用户目标包含两部分：inform\_slots表示当前用户的限制，
+request\_slots表示用户目标的缺失信息，需要系统通过对话来得到。
+对话管理器包含了DST的Policy Learning两部分，DST使用了端到端的循环神经网络模型，
+直接使用了对话历史的表示学习。Policy Learning使用了DST的表示作为状态，
+输出系统选择的策略，称为$\pi(a|s)$。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[totalheight=1.8in]{fig/end2end_dialog.png}
+	\caption{End-to-End Dialog Management} \label{fig:end2end_dialog}
+\end{figure}
+
+对于端到端的强化学习训练过程，可以使用Deep Q-Network（DQN）的方法，
+其中target network和experience replay等技巧都可以使用。
+或者可以使用基于策略梯度的方法，直接最优化策略$\pi$。
+
+
+\subsection{机器阅读理解}
+
+在智能语音搜索中有很多复杂的query，难以通过知识图谱推理找到答案，这时就需要从大量的问答类的数据中直接搜索提取出答案，因此我们加入了机器阅读理解（machine comprehension）系统。这种问答类的数据比如淘宝的“问大家”，一般是有一个问题和一个答案组成。语音搜索中的机器阅读理解系统包含下面几个部分：
+
+1 找到和当前query相似的问题
+
+2 找到这个问题最准确的答案
+
+3 提取答案中的商品品类和属性
+
+我们将以Dynamic Coattention Networks for Question Answering\cite{2}中提出的模型为例，介绍一下目前主流的机器阅读理解方法。
+
+在这个任务中，给定一个问题$(x_1^Q, x_2^Q, \cdots, x_n^Q)$和一篇文章$(x_1^D, x_2^D, \cdots, x_m^D)$，我们的目标是从文章中找出一个词或者短语，作为这个问题的答案。首先使用双向LSTM循环神经网络对文章和问题进行建模，得到他们的隐层表示$Q$和$D$。接下来，计算文章与问题之间的coattention。
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width=\linewidth]{"fig/dcn"}
+	\caption{coattention encoder}
+	\label{fig:dcn}
+\end{figure}
+
+如图\ref{fig:dcn}，首先得到问题关于文章的attention分布$A^Q$，然后与文章的表示整合得到上下文向量$C^Q$，并将上下文向量与问句原有的隐层向量连接起来。再将连接的结果与文章关于问题的attention分布$A^D$整合，并与文章原有的隐层向量连接，即得到文章中每个词基于coattention的向量表示。形式化为
+
+\begin{gather}
+	C^Q=DA^Q
+	C^D=[Q;C^Q]A^D
+\end{gather}
+
+最终$[D;C^D]$即为文章中词的表示。然后输入至双向LSTM循环神经网络中进一步特征整合。
+
+在得到文章中每个词关于问题的特征表示后，我们需要从中挑选出答案片段。与其他多数方法不同的是，本文中的模型并没有采用Pointer Network的思路，直接预测答案片段的起点和终点的位置，而是采用了一个迭代式的方法来确定，从而避免算法陷入其他的次优解。具体的来说，模型首先会利用单向LSTM网络预测起点和终点，然后将得到的起点和终点作为额外信息，输入下一次的预测中，如此反复循环，直到对于起点和终点的预测结果稳定下来。其中，在根据LSTM的隐层属于起点和终点的预测概率时，采用了Maxout网络和Highway网络相结合的结构，这应该是大量实验得到的结果。
+
+其他针对机器阅读理解的方法与上文中的模型通常拥有相似的框架，主要区别在对文章与问题的特征融合方式和答案片段的预测方法。比如在SQuAD数据集上当前最好的方法R-NET，加入了字符级别的表征信息，并在信息融合的模块之间加入了gate机制。这些都有可能带来效果上的提升，但针对具体问题和数据，仍然需要实验来验证。
+
+
+
+\section{性能优化——Cascade Ranking for Operational E-commerce Search}
+\subsection{背景}
+首先来说说什么是搜索引擎，搜索引擎像是一个网络导购员，人们把想找的产品名称通过“产品关键词（query）”告诉搜索引擎，它会根据商品与用户搜索关键字和用户喜好返回一个商品序列。而一般的搜索引擎都分为“召回、海选、精排”三部分，召回简单的来说就是根据query去查倒排表，把符合这个query的所有（实际因为有截断逻辑所以不是所有商品）商品拿出来，海选就是对这些商品做一个简单的feature，然后取出top的商品进入精排，精排会算很多复杂的feature，最后的序列会去查summary引擎，然后把商品信息返回给用户。
+
+初看到这个框架，感觉海选没什么用，为什么要先算一次分然后取top，而不是直接把所有召回的商品都用于精排算分呢？这样无形中损失了部分信息呀！对于召回的结果，都计算复杂的feature，这样理论上才是全局最优解吧。为啥还要海选？答案是因为计算性能，对于一个用户，从发送“搜索”请求到的都搜索结果，一般要求在百毫秒级返回结果，从发送请求到获得结果，网络传输、召回查倒排、计算feature都要耗时，其中计算feature耗时占到引擎耗时的40％！我们目前每个query计算精排的平均doc数约为1100，而每次math到的doc约为10000个，如果精排doc数不通过海选筛选，要达到百毫秒级返回结果的用户体验，对公司的机器损耗是非常巨大的（要增加9倍search引擎的机器才能达到相同效果），所以目前框架才有海选这一部分！
+
+motivation：目前线上搜索逻辑为召回、海选、精排。海选目前有两个特征，取top1800进入精排，而精排有50个左右特征，可以理解为目前的搜索是一个两层排序。目前优化海选和精排feature都是单层优化的，每层选哪些feature？海选到精排取top多少可以达到performance和cost的最优balance？单层优化得到的权重在实际多层排序中是否还是最优？这些问题目前都是单层LTR到Target的结果，这就指导我们可以通过模型的方法来同时learn这些参数。
+
+Cascade思想起源于real-time目标识别，用廉价的特征（耗时较少）作cascade前层，以达到快速识别目标的任务。识别率95\%，耗时0.7s识别一张485*288像素的图片。cascade model将目前搜索引擎的“召回、海选、精排”改进为“召回、海选、精排1、精排2、…、精排N”，同时优化每层权重和引擎代价（计算代价、特征构造、析构代价、传参代价等），达到在不降低目前线上performance的情况下减少引擎代价的目标。
+\subsection{核心算法}
+\subsubsection{概念介绍}
+cascade learning：两种典型的cascade分别为hard cascade model和Soft cascade model。线上因为稳定性等原因一般用hard cascade实现。基本实现如下图：
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/cascade.png"}
+	\caption{cascade流程图}
+	\label{fig:cascade}
+\end{figure}
+
+hard cascade model：每层通过判断是否大于阈值$\theta_i$决定当前商品是否会进入下层。如果这样直接训练要训练三个独立的模型，并且需要预先指定$\theta_i$，这是一个复杂的问题。
+
+Soft cascade model：将每个商品是否通过当前层看作概率，那么一个商品通过所有层的概率为通过每层概率的积。
+
+
+
+\subsubsection{cascade model实验}
+
+\subsubsection{Soft Cascade}
+
+将每个商品是否通过当前层看作概率$p(p_{'}|p_*)$，这里$p_*$代表当前商品通过之前所有stage的概率。那么，一个商品通过所有stage的概率可以写作：
+$$p(y=1|x,w)=\prod\limits^K_{j=1}p_{c_j}(y=1|x,w)=\prod^K_{j=1}\sigma(f_{c_j}(x))$$
+$$\sigma(z)=\dfrac{1}{1+e^{-z}}$$
+$$f_{c_j}=\sum\limits^j_{k=1}w^T_{jk}x^k$$
+那么一个商品未通过的我概率为：
+$$p(y=0|x,w)=1-\prod\limits^K_{j=1}\sigma(f_{c_j}(x))$$
+w的maximum likehood estimate为：
+$$\hat w_{ML}=\mathop{\arg}\mathop{\max}\limits_wp(y_1,...,y_N,w)=\mathop{\arg}\mathop{\max}_w\mathop{\log}p(D|w)$$
+定义为第i个商品预测为positive的概率，假设每个训练样本是独立的，那么log-likelihood可以写为：
+$$l(w)=\mathop{\log}p(D|w)=\sum_{i=1}^Ny_i\mathop{\log}p_i+(1-y_i)\mathop{\log}(1-p_i)$$
+为防止过拟合
+$$L(w)=[\mathop{\log}p(D|w)=\sum_{i=1}^Ny_i\mathop{\log}p_i+(1-y_i)\mathop{\log}(1-p_i)]+\alpha\left\|w\right\|$$
+然后对时间建模，考虑一个商品$x_i$在第$n$阶段的耗时为$t_i$，那么时间constraint可以建模为：
+$$T(w)=\dfrac{1}{N}\sum_{i=1}^N[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]$$
+所以这个优化问题可以建模为：
+$$\hat w_{MAP}=\mathop{\arg}\mathop{\max}L(w)$$
+$$subject\ to\ T(w){\le}c$$
+为了求解这个问题，我们将优化问题变为：
+$$\hat w_{MAP}=\mathop{\arg}\mathop{\max}L(w)-{\beta}T(w)$$
+这里${\beta}$用来平衡performance和cost。
+Train：由于模型是非凸，所以对每个$w$用坐标下降法求解。
+模型求解，这个优化问题可以看成最小化$J(w)$
+$$J(w)=-l(w)+\alpha\left\|w\right\|_1+{\beta}T(w)$$
+当$w_t\ne0$，一阶导为
+$$J'(w_t)=-\sum_{i=1}^N[\dfrac{y_i}{p_i}-\dfrac{1-y_i}{1-p_i}]\dfrac{{\partial}p_i}{{\partial}w_t}+{\alpha}sgn(w_t)+\beta\dfrac{{\partial}T(w)}{{\partial}w_t}$$
+定义$1_{t{\in}C_j}=1$如果$x_t$被$C_j$使用，否则等于零。
+$$\dfrac{{\partial}p_i}{{\partial}w_t}=p_i(x_i)_t\sum_{j=1}^K(1-\sigma(f_{c_j}(x_i))\;1_{t{\in}C_j}$$
+$$
+\begin{align}
+\dfrac{{\partial}T(w)}{{\partial}W_t}&=\dfrac{1}{N}\sum_{i=1}^N(x_i)_t\sum_{j=2}^kt_j[\prod_{l=1}^{j-1}\sigma(f_{c_j}(x_i)]\sum_{l=1}^{j-1}(1-\sigma(f_{c_j}(x_i)))\;1_{t{\in}C_j}\nonumber\\
+\end{align}
+$$
+当$w_t=0$，定义$e_t$为相对$w_t$的co-ordinate direction，方向导数被定义为：
+$$J'_+(w_t)=\mathop{\lim}_{{\delta}\to0}\dfrac{J(w+{\delta}e_t)-J(w)}{\delta}=-\dfrac{{\partial}l(w)}{{\partial}w_t}+{\alpha}+{\beta}\dfrac{{\partial}T(w)}{{\partial}w_t}$$
+$$J'_-(w_t)=\mathop{\lim}_{{\delta}\to0}\dfrac{J(w-{\delta}e_t)-J(w)}{\delta}=-\dfrac{{\partial}l(w)}{{\partial}w_t}-{\alpha}+{\beta}\dfrac{{\partial}T(w)}{{\partial}w_t}$$
+算法验证$J'_+(w_t)$和$J'_+(w_t)$两个方向，选择成功下降的方向。
+
+
+
+\subsubsection{cascade model在搜索环境的改进}
+feature顺序选择问题:这个解决用单层lr去train权重，w/cost依次选择即可。
+ranksize选择问题:线上是hard cascade，为了接近train的效果。假设进入海选的商品数为X(简写为matchcount），ranksize的选择我们遵循soft cascade的期望。即
+$$M=\dfrac{{X\sum_{i=1}^{|instance|}p_i}}{|instance|};N=\dfrac{M\sum_{i=1}^{|instance|}p_i}{|instance|}$$
+
+
+这里希望通过${matchcount}*p$来确定$ranksize$，如果${matchcount}*p=ranksize$，模型的目标就会很接近线上的hard cascade。$T(w)$模型的loss也会与线上hard cascade的一致。文中采用通过最大化AUC确定ranksize的方法与模型目标是不一致的。10\%的query进海选的宝贝数是小于200的，25\%的query进海选的宝贝数是小于774的。
+
+只考虑soft cascade，把matchcount作为特征放进去，希望matchcount小的，P大一些，否则最后展示（通过所有层）的item就不够了，考虑到不同query的进海选宝贝数不同，所以尝试把matchcount也作为一个特征建模进来。考虑到部分长尾query召回的宝贝数较少，这时候还希望有尽可能多的宝贝到精排，考虑到用户一般手淘购物翻页在6页内，再加上bandit，一般认为精排后有200个以上的宝贝就足够展示了。
+
+假设一个item就是这个query下所有商品通过的期望，如果要完全模拟这一个罚项要写成
+$$L(w)= -l(w)+\alpha\left\|w\right\|_1+{\beta}T(w)＋{\theta}C(w)$$
+$$l(w)=\sum_{i=1}^Ny_i\mathop{\log}p_i+(1-y_i)\mathop{\log}(1-p_i)$$
+$$T(w)=\dfrac{1}{N}\sum_{i=1}^N[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]$$
+$$C(w)=\sum_{q=1}^{Q}N_q{\delta}\mathop{\log}(1+e^{\dfrac{200-{m}_q{\dfrac{{\sum}_{i=1}^{N_q}p_i}{N_q}}}{\delta}})$$
+
+其中${\delta}\mathop{\log}(1+exp^{\dfrac{x}{\delta}})$,在$\delta\to0$的情况下为$x{\le}0,y=0;x>0,y=x$的可导近似表示。
+
+$$C(w)={\theta}\sum_{q=1}^{Q}{\delta}\mathop{\log}(1+e^{\dfrac{200-{m}_q{\dfrac{{\sum}_{i=1}^{N_q}p_i}{N_q}}}{\delta}})$$
+
+相应的导数为：
+
+$$\dfrac{{\partial}C(w)}{{\partial}w_t}={\theta}\sum_{q=1}^{Q}\dfrac{exp({\dfrac{200-{\dfrac{{m}_q}{N_q}}{\sum}_{i=1}^{N_q}p_i}{\delta}})}{1+exp({\dfrac{200-{\dfrac{{m}_q}{N_q}}{\sum}_{i=1}^{N_q}p_i}{\delta}})}{\dfrac{-m_q}{N_q}}{\sum}_{i=1}^{N_q}\dfrac{{\partial}p_i}{{\partial}w_t}$$
+
+其中>10\%的query进海选的宝贝数是大于62155的，有1\%的query甚至大于137543，显然这些宝贝按照soft cascade，每层的ranksize太大，这会导致这部分query超时严重，导致引擎cpu负载瞬间太高，引起故障，目前引擎在一条query下的上限是130ms。
+
+这时罚项要加上这个限制，变为：
+
+$$\begin{align}
+&L(w)=-l(w)+\alpha\left\|w\right\|_1+{\beta}T(w)+{\theta}_1C(w)+{\theta}_2L(w)\nonumber\\
+&=\sum_{i=1}^Ny_i\mathop{\log}p_i+(1-y_i)\mathop{\log}(1-p_i)\nonumber\\
+&+\alpha\left\|a\right\|+\dfrac{1}{N}\sum_{i=1}^N[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]\nonumber\\
+&+{\theta_1}\sum_{q=1}^{Q}{\delta}\mathop{\log}(1+e^{\dfrac{200-{m}_q{\dfrac{{\sum}_{i=1}^{N_q}p_i}{N_q}}}{\delta}})\nonumber\\
+&+{\theta_2}\sum_{q=1}^{Q}{\delta}\mathop{\log}(1+e^{\dfrac{\dfrac{m_q}{N_q}{\sum_{i=1}^{N_q}[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]-130}}{\delta}})\nonumber\\
+\end{align}
+$$
+这里$t_j$代表一个宝贝在第j个阶段的耗时。根据HawkEye获取单位query耗时，根据AM获取平均reranksize，即可得到。
+$$L(w)=\sum_{q=1}^{Q}{\delta}\mathop{\log}(1+exp({\dfrac{\dfrac{m_q}{N_q}{\sum_{i=1}^{N_q}[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]-30}}{\delta}}))$$
+
+$$\dfrac{{\partial}L(w)}{{\partial}w_t}=\sum_{q=1}^{Q}\dfrac{exp({\dfrac{\dfrac{m_q}{N_q}{\sum_{i=1}^{N_q}[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]-130}}{\delta}})}{(1+exp({\dfrac{\dfrac{m_q}{N_q}{\sum_{i=1}^{N_q}[t_1+\sum_{j=2}^kt_j\prod\limits_{l=1}^{j-1}\sigma(f_{c_j}(x_i))]-130}}{\delta}}))}\sum_{i=1}^{N_q}\dfrac{{\partial}T_i}{{\partial}w_t}$$
+为了实现上述效果，考虑到P与Matchcount是非线性关系，这里把Matchcount根据经验分成10档。对每个instance加上10维的离散特征，相当于学习每个不同Matchcount下的bias。
+
+
+\subsubsection{实验}
+
+\begin{table}[h]
+	\centering
+	\caption{Feature information}
+	\begin{tabular}{l|l|l}
+		\hline
+		Feature name & Description & Cost \\
+		\hline
+		Sales Volume & 销量相关 & 0.02 \\     \hline
+		
+		PostPay Score& 售后相关 & 0.09	 \\  \hline
+		
+		Click-Through-Rate& 点击率相关 & 0.13	 \\  \hline
+		
+		Relevance Score& 相关性相关 & 0.74	 \\  \hline
+		
+		Deep Neural Network& 深度学习相关 & 0.84	 \\  \hline
+		
+		... & ... & ... \\ \hline    \hline
+		
+		Recalled Count& 召回结果数相关 & 0	 \\ 
+		\hline
+	\end{tabular}
+	\label{Feature}
+\end{table}
+离线数据采集来自淘宝数据，每条样本包括用户、query、商品及其对应的特征，每个query下召回的商品数，部分特征列在表中，正负样本采样为1：10，根据用户的点击、成交做重采样，通过对价格平滑，使采样目标更接近成交额。一般的，log-likelihood如下：
+
+$$\begin{align}
+&\Sigma_{i=1}^{N} \{(y_{clk\_i} log p_{clk\_i} + (1-y_{clk\_i}) log(1-p_{clk\_i})) *\mu*log(price_i)\}  \\
+&+ \Sigma_{i=1}^{N} \{(y_{buy\_i} log p_{buy\_i} + (1-y_{buy\_i})log(1-p_{buy\_i}))*\epsilon*\mu*log(price_i)\}
+\end{align}
+$$
+
+通过调节参数，我们可以得到如下实验结果。可以看到我们可以通过改变参数来调节我们需要的目标，同时大幅减少线上性能损耗。
+
+	
+\begin{table}[h]
+	\centering
+	\caption{Importance Weitht}
+	\begin{tabular}
+		{l  |lllll}
+		\hline
+		Importance & \multirow{2}[1]*{CTR} & Number  & \multirow{2}[1]*{GMV} & Unit  & \multirow{2}[1]*{Cost} \\
+		weight & & of order &  &  price &  \\
+		\hline
+		$\varepsilon=1, \ \mu=1$&+1.58\%& $-$1.35\% & $-$1.76\% & $-$0.42\% & $-$20\% \\
+		$\varepsilon=10, \mu=1$ &+0.25\%& +1.89\% & $-$0.64\% & $-$2.49\% &  $-$20\% \\
+		$\varepsilon=10, \mu=2$ &+0.17\%& +1.65\% & +0.24\% & $-$1.39\% &  $-$20\% \\
+		$\varepsilon=10, \mu=3$ &+0.12\%& +0.36\% & +1.32\% & +0.95\% &  $-$20\% \\
+		$\varepsilon=10, \mu=4$ &$-$0.13\%& $-$0.25\% & $-$0.92\% & +1.65\% &  $-$20\% \\
+		\hline
+	\end{tabular}
+	
+	\label{resample}
+\end{table}
+
+
+ABtest结果如下，测试中采用的部分系统参数如下表。
+\begin{table}[h!]
+	\centering
+	\caption{System information}
+	\begin{tabular}{ll}
+		\hline
+		hardware&configuration\\
+		\hline
+		\multirow{2}[1]*{CPU}&  2x 16-core Intel(R) Xeon(R)  \\
+		&CPU E5-2682 v4 @ 2.50GHz\\
+		RAM&  256 GB\\
+		Is hyperthreading&  Yes\\
+		Networking&  10 Gbps\\
+		OS&  ALIOS7 Linux 3.10.0 x86\_64   \\
+		\hline
+	\end{tabular}
+	
+	\label{table:system}
+\end{table}	
+
+最后实验对比如下几种方法，简介如下：
+
+\begin{itemize}
+	
+	\item{\textbf{Single stage classifier} 是最常见的方法，所有特征用来做一次单层的learning to rank，在我们实验中，是一个逻辑回归模型，如果所有特种都被用于预测，理论上可以得到模型上最高的准确率，但同时也会让计算代价最高。}
+	
+	
+	\item{\textbf{2-stage approach} 是一种级联的方法，广泛应用于真实搜索引擎，在第一阶段，用廉价特征，第二阶段用所有特种，在我们实验中，第一阶段选用了目前线上的特征。}
+	
+	
+	
+	\item{\textbf{Soft cascade framework} 是与我们目前方法最接近的，raykar在2010年提出用于快速人脸检测，这个方法同时考虑了性能、效果等因素，然而这个方法并没有被用于真实线上环境，因为部分Query会超时，线上并没办法达到理论值}
+	
+	
+	\item{\textbf{CLOES} 是我们的工作，在Soft Cascade的基础上考虑了用户体验、引擎负载等因素，这也是类似方法首次应用于大规模搜索引擎。}
+	
+\end{itemize}
+
+实验结果如下，可以看到我们的方法可以在效果和性能的平衡上取得较好的成绩。这个方法在2016、2017双11用于性能优化、引擎降级，为集团节省30\%的机器。
+\begin{table}[h]
+	\centering
+	\caption{Mtethods Compare}
+	\begin{tabular}{llll}
+		\hline
+		& Train set & Test set & Cost \\
+		& AUC  & AUC & COST \\
+		\hline
+		Single stage &\multirow{2}[1]*{0.88} & \multirow{2}[1]*{0.87}   & \multirow{2}[1]*{1} \\
+		all features &   &   \\
+		
+		single stage & \multirow{2}[1]*{0.73}   & \multirow{2}[1]*{0.72} & \multirow{2}[1]*{0.06} \\
+		simple features &    &  &  \\
+		
+		2-stage approach & 0.78   & 0.76 & 0.30 \\
+		
+		CLOES($\beta=1$) & 0.81 &   0.80 & 0.29 \\
+		
+		CLOES($\beta=10$) & 0.80 &   0.77 & 0.18 \\
+		\hline
+	\end{tabular}
+	\label{methods compare}
+\end{table}
+
+最后我们来讨论算法在具体用户体验上的效果，尝试解释为何我们的算法可以解决效果和性能的冲突，我们在不同Query上比较了非流失用户点击率和总体点击率，对于高频Query，统计结果显示点击率稍有下降因为我们计算更少的商品，这导致我们更难fit最理想的结果。但如果我们考虑流失率，可以发现总体点击率竟然有很小的提升，我们拉去线上日志发现，确实用户的流失率与请求时间成反比，我们算法降低请求时间的同时也降低了用户在高频Query的流失率。对于长尾Query，点击率微弱提升，着来自于我们计算了更多的doc。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/re_cascade.png"}
+	\caption{cascade实验结果}
+	\label{fig:cascade}
+\end{figure}
+
+
+\section{凑单算法——基于Graph Embedding的bundle mining}
+\subsection{背景}
+凑单作为购物券导购链路的一个重要环节，旨在帮助用户找到商品，达成某个满减门槛（比如满400减50），完成跨店凑单，完善购物券整个链路的体验。满减购物券作为大促中使用最广泛的一种营销手段，优势远大于红包、商品打折等优惠活动，它不仅能给用户带来切实的优惠，而且能让用户买的更多，提升客单价。凑单作为用券的重要链路，旨在帮助消费者找到能使用同门槛优惠券的商品。
+今年凑单相比往年，有两个重大突破，首先是产品形态上的改变，往年，凑单只是一个商品推荐页，今年，凑单能够支持搜索、价格筛选、类目筛选、销量排序、价格排序等搜索功能。其次，算法上做了重大突破，基于Graph Embedding的bundle mining，bundle是打包购的意思，我们认为凑单的重要场景是当用户已经加购了商品A，还想找一个能一起打包买的商品B，而不是想找跟A相似的商品C，传统的u2i、相似i2i并不能满足凑单场景的需求，为了突破找相似等经常被人诟病的体验，我们甚至不能有u2i、相似i2i等逻辑，所以bundle mining变成凑单算法优化的重点，不仅能提升丰富性的体验，还能提升转化效率。
+
+
+\begin{figure}[!h]
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/cd0.png"}
+\caption{购物车的凑单入口}
+\label{fig:cd0}
+\end{minipage}%
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/cd1.png"}
+\caption{凑单页}
+\label{fig:cd1}
+\end{minipage}
+\end{figure}
+
+
+\subsection{核心算法}
+\subsubsection{基本思路}
+图是一种抽象程度高、表达能力强的数据结构，它通过对节点和边的定义来描述实体和实体之间的关联关系。常用的图有社交关系网络、商品网络、知识图谱等等。
+\par 用户行为是一个天然的网络图，边和节点往往有着各种丰富的信息，graph embedding是学习节点隐表示向量，在一个连续向量空间中对节点的关联关系进行编码，便于计算节点之间的关联关系，同时，graph具有传播能力，通过random walk可以挖掘多度关系，能有效的提升覆盖度，扩大召回。
+\par Graph Embedding是学术界一个重要研究方向，比如deep walk，是语言模型和无监督学习从单词序列扩展到图结构上的一个典型方法，该方法将截断游走的序列当成句子进行学习，之后采用word2vec中Skip-Gram模型进行训练，得到每个节点的embedding向量。Line只针对边进行采样，Node2vec可以调节参数来进行BFS或者DFS的抽样。
+\par 所以Graph Embedding的基本思路是，对graph进行采样（Sampling），采出来的序构建模型（Embedding）。
+
+\subsubsection{主要技术}
+结合我们的场景，要挖掘共同购买的关系，直接通过item-item的关系挖掘也可以做到，传统的协同过滤，也可以做到，为什么我们还需要构建graph？因为graph具有传播能力，它不仅能有效的提取出来直接关联，而且可以通过游走策略，挖掘出来二度、三度的关系。我们认为，朋友的朋友，也是朋友，也存在一定的弱关联，有效的利用这种传播能力，能解决购买数据的稀疏性，大大的提升覆盖。
+\par 我们主要有三方面的工作，一是，基于用户购买行为构建graph，节点：商品，边：商品间同时购买的行为，权重：同时购买的比重，可以是购买次数、购买时间、金额等feature；二是，基于权重Sampling（weighted walk）作为正样本的候选，负样本从用户非购买行为中随机抽样；三是，embedding部分将无监督模型升级成有监督模型，将基于weighted walk采出来的序，构造成item-item的pair对，送给有监督模型（DNN）训练。下图是算法框架图。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cd2.png"}
+	\caption{}
+	\label{fig:cd2}
+\end{figure}
+
+\paragraph{构建Graph}
+上文提到，我们要挖掘商品间共同购买的关系（bundle mining），类似买了又买的问题，所以，我们构建的graph是带权重的商品网络，节点：商品，边：商品间共同购买的关系，权重：共同购买次数、购买时间。
+\par 为什么需要带权重的Graph？因为random walk等传统方法不适用商品网络，商品节点动辄上千万，其中大部分节点的关联性是很弱的，也就是冷门商品居多，只有少部分商品构建的graph是热点，如果采用random walk去采样，会采出很多冷门节点的序列，所以我们基于边的权重去采样（weighted walk），使采样尽量往热门节点方向游走，这样采样出来的样本置信度才更高。
+\par 因此，我们的输入是一个带weight的graph ，Graph定义：G = （V，E，W），V = vertex （顶点或者节点，在bundle的问题中，特指商品），E = edge（边，在bundle的问题中，特指共同购买） ，W = weight（边的权重，共同购买的次数、时间），如下图，接下来就要进行sampling。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cd3.png"}
+	\caption{}
+	\label{fig:cd3}
+\end{figure}
+
+\paragraph{Sampling}
+传统的方法，比如deep walk，它的Sampling本质上是有两部分，首先，通过random walk的方式进行游走截断，其次，在仍给word2vec中Skip-Gram模型进行embedding之前，用negative sampling的方式去构造样本；这种随机采样的方法会大概率的将热门节点采集为负样本，这种方式适用于语言模型，因为在自然语言中，热门的单词均为无用单词（比如he、she、it、is、the）。对于我们的商品网络，刚好相反，热门商品往往是最重要的样本，如果采用negative sampling的方式去构造样本，模型肯定是学不出来。因此，我们基于边的权重去采样（weighted walk），使采样尽量往热门节点方向游走，以下图为例：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cd4.png"}
+	\caption{}
+	\label{fig:cd4}
+\end{figure}
+
+\par 带权重的商品graph
+\par 举个例子来说，假设游走2步，从节点A出发，随机取下一个邻居节点时，如果是random walk算法，它会等概率的游走到B或C节点，但是我们的算法会以7/8的概率取节点C，再会以8/12的概率游走到节点D，最终很大概率上会采出来一条序$walk=（A，C，D）$，对于原始graph，A和D是没有关联的，但是通过weighted walk，能够有效的挖掘出A和D的关系，算法详见：
+
+Algorithm 1 Weigted Walk($G,n,Walks$)
+Input: Graph $G(V,E,W)$
+\quad\quad\quad Step $n$
+Output: $walk$
+Initialization: $walk$ to empty
+\quad\quad For each $v_i$ $\in$ $V$ do
+\quad\quad\quad Append $v_i$ to $walk$
+\quad\quad\quad For $j=1...n$ do
+\quad\quad\quad\quad\quad $v_j=GetNeighbor(G,v_i)$
+\quad\quad\quad\quad\quad Append $v_j$ to $walk$
+\quad\quad\quad Return $walk$
+
+Algorithm 2 $GetNeighbor(G,v_i)$
+Input: Graph $G(V,E,W)$
+\quad\quad\quad Node $v_i$
+Output: next node $v_j$
+$v_j=WeightedSample(v_i,w)$
+
+算法实现是在odps graph平台实现的，一个分布式的图计算平台，离线graph有2亿条边，3千万节点，10分钟跑完所有的数据，实时部分，我们实现了每分钟最高可更新10w的Graph边的结构，如何在分布式odps graph平台实现这套算法详见另一篇ata，尽请期待
+
+\subsubsection{Embedding}
+上一部分介绍了如何构建了带权重的概率图，基于带权重的采样（weighted walk）作为正样本的候选，负样本从用户非购买行为中随机抽样；这一部分主要介绍embedding的部分，将基于weighted walk采出来的序，构造成item-item的pair对，送给embedding模型，我们构造了一个有监督embedding模型（DNN），规避无监督模型无法离线评估模型效果的问题。模型结构如下图。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cd5.png"}
+	\caption{有监督的embedding模型（DNN）}
+	\label{fig:cd5}
+\end{figure}
+
+有监督的embedding环节做了许多迭代优化，详见另一篇ata：[基于DNN的多目标、多通道的bundle算法](https://www.atatech.org/articles/94430)。
+
+
+\subsection{实现}
+\subsubsection{离线}
+\begin{enumerate}
+\item 训练：离线模型在PAI平台上用tensorflow框架实现，抽取了历史50天的全网成交数据，大概抽取3000万节点，构建的graph，在odps graph平台做完weighted walk，产出2亿条样本，也就是item-item的pair对，训练至收敛需要2小时的时间
+\item 预测：从全网所有行为中，随机抽取几十亿条pair对，去做预测，给每对item pair预测一个score
+\item 上线：对每个种子商品取topN的bundle商品，打到搜索引擎的倒排和正排字段，从qp中取出每个用户的种子商品，基于倒排字段召回bundle商品，基于正排字段做bundle排序
+\end{enumerate}
+\subsubsection{实时}
+用户购买行为，日常和大促差异很大，为了能够实时的捕获用户实时行为，我们在porsche上建了一套实时计算bundle mining的流程：
+\begin{enumerate}
+\item 数据预处理：在porsche上对用户实时日志进行收集，按离线的数据格式处理成实时的数据流
+\item Sampling：发送给odps graph实时计算平台，构建graph，做weighted walk，生成序，再通过swift消息发出
+\item Embedding：在porsche上做DNN模型训练和实时预测
+\item 数据后处理：计算item的topN的bundle item list，实时写到dump和引擎
+\end{enumerate}
+
+
+\subsection{实验和结果}
+双十一预热期间，我们将bundle算法上线对比基准桶，提升很明显
+
+1、点击：离线版bundle算法对比基准桶，ipv提升13\%，实时版bundle算法在此基础上又提升4\%，如下图：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cd6.png"}
+	\caption{}
+	\label{fig:cd6}
+\end{figure}
+
+2、丰富性：bundle算法对比基准桶，人均曝光叶子类目提升88\%，人均曝光一级类目提升43\%，如下图。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/cd7.png"}
+	\caption{}
+	\label{fig:cd7}
+\end{figure}
+
+
+\subsection{总结}
+graph的核心优势，具有传播能力，朋友的朋友，也是朋友，传统i2i（统计版i2i）,只统计直接关系，而我们构建的共同购买的graph，可以通过游走挖掘多度关系，弥补购买行为稀疏的问题，有效的提升了覆盖率，我们离线实验发现，对比统计版本auc提升非常明显。
+\par 我们实现了实时大规模graph更新，每分钟最高可更新10万条边，双11这么大的qps能够平稳运行。
+	
+
+\subsection{未来和展望}
+凑单在未来还要继续努力，我们还有不完善的地方，在产品形态上，第一，价格preview没有做出来，用户不知道自己已经加购了多少，还差多少，能用多少优惠券，我们希望下次能在凑单页帮用户实时的算出凑单进度，第二，我们这次没有实时捕捉到入口种子商品，下次我们期望能做到，不同入口点进去，凑单的商品能和入口种子商品强相关；在算法优化上，把新颖性做强，尝试用graph bandit的方法，给用户投放一些没看过的但又相关的品类，根据投放的收益，设计一个合理的机制去explore。
+
+
+
+\section{个性化时尚搭配在淘宝搜索的实践}
+
+\subsection{背景}
+淘宝平台上有许多年轻、爱美的女性在shopping，女性在平台购物时，往往需要能找到适合自己的搭配（outfit）。比如在淘宝搜索场景下，用户搜索一件衣服时，很自然的想法是，除了衣服本身外，还需要什么样的裤子（或者裙子、鞋、包等），以使自己的穿着显得美丽时尚。如果我们能提供适合用户自己的时尚搭配，应能丰富用户在搜索场景下的体验，更好得为用户服务。因此，我们需要学习研究个性化时尚搭配。
+
+\subsection{业界现状}
+随着时尚产业、时尚杂志的快速发展，服饰时尚越来越受到关注。时尚领域是计算机视觉的一个非常重要且利润丰厚的应用领域。在该领域中已经存在许多研究，包括服饰检索与推荐[5,7,8,9,14,21]、服饰分类[3,11,15,18,22]、属性预测[1,2,4,23]、以及服饰时尚分析[14,16]等。
+
+\par 由于时尚概念的主观性，到目前为止，只有少量工作[10,13]研究时尚搭配。基本的思路是，学习一个item的表示，再通过表示判断outfit中item之间的搭配程度。
+
+\par 有许多方法研究服饰的表示。Vittayakorn et al.[20]提取基本特征，并将它们连接在一起，形成一个向量用以表示outfit，Matzen et al.[16]使用深度学习方法训练多种属性分类器，再使用分类器的高层特征得到服饰的视觉表示，Simo-Serra et al.[18]训练一个分类器以提取不同的特征表示，同样也使用分类网络的高层特征作为时尚风格的表示。
+
+\par 在搭配构建方面，Veit et al.[19]使用Siamese Convolutional Neural Network （SCNN）学习得到每一个item的表示特征，再通过特征向量判断item之间是否相搭。Li et al.[13]使用基于深度学习的多模态（multi-modal）多实例（multi-instance）embedding作为outfit的特征，质量分作为标签，以训练搭配打分模型。
+
+\par 在集团内，据我们了解，雷音老师团队对时尚搭配已有研究，并取得了不错的效果。他们建设了一套搭配库，包括来自淘宝达人、搭配市场等的搭配套餐。并以此为基础，算法上通过搭配部件可替换关系，扩展搭配的数量。
+
+\subsection{相关调研}
+在学习调研搭配知识的相关文献（书籍、杂志等）以及业界相关工作的基础上，我们有了以下思考：
+
+\paragraph{搭配分类}
+有关于服饰搭配可以分为以下三类：
+\begin{enumerate}
+\item 服装与服装之间的搭配，比如上装与下装等；
+\item 服饰与饰品的搭配；
+\item 服装、饰品与人的搭配，主要涉及用户的年龄/职业/生活场景，譬如刚步入职场的白领女生怎么穿搭才显得体，去海边度假又需要一套什么样的搭配
+\end{enumerate}
+\paragraph{搭配原则}
+服饰搭配会有以下几个基本原则：
+\begin{enumerate}
+\item 搭配的服饰要有品位，这表示组成搭配的单品要有美感；
+\item 色彩重要性远大于款式和面料；
+\item 视觉平衡能带给人更好的感觉，视觉平衡感指感觉上的大小、轻重、明暗以及质感的均衡状态；
+\item 善用饰品，能增添光彩。
+\end{enumerate}
+
+
+\paragraph{搭配难点}
+搭配需要考虑的有许多，大致可以分为以下几点：
+\begin{enumerate}
+\item 不同的季节、月份，流行的单品不一样，时尚及流行趋势也所变化；
+\item 搭配单品在外观上受到颜色、款式等的影响，在物理上受到材质、面料的影响；
+\item 每个人的身材不一样，而且个性偏好各有不同；
+\item 在电商场景下(搜索/推荐等)，以什么样的产品形态，将搭配展现给用户。
+\end{enumerate}
+
+\paragraph{搭配数据}
+目前我们能够从时尚杂志、时尚网站等看到一整套搭配，或者是穿着在模特身上的时尚的搭配。对于由达人编辑好的搭配（比如来自Polyvore.com等），我们能较容易的拿到搭配的各组成部分。而对于穿在模特身上的搭配（比如淘宝模特的穿着等），我们需要首先将模特身上的衣服、裤子等提取出来，再做后续的处理。
+
+\paragraph{搭配技术}
+从算法上考虑，电商场景下，目前要一次性解决个性化搭配比较困难，首先没有足够的这方面数据，其次业界也基本没有这方面的经验可以借鉴。不过对于单品与单品之间的搭配，如上所述，业界已给出了一些思路。从图像角度看，我们比较容易识别出搭配单品的颜色、形状、纹理等，利用深度学习模型，从大量数据中学习搭配关系，这也是目前业界主要研究的方面。
+
+\par 综合以上考虑，我们目前的工作主要focus在淘宝搜索场景下，分2步实现个性化时尚搭配推荐：第一步，我们从图像上给出单品服饰之间的搭配关系；第二步，利用用户在全网行为（点击、加购、购买等）或者用户Profile、偏好，个性化生成搭配并推荐给用户。
+
+方案主要有以下几方面：
+\begin{enumerate}
+\item 模特服饰提取：这部分简单介绍如何从商家模特图中，提取搭配数据，比如上衣、下衣等。
+\item 搭配关系构建：这部分主要介绍如何从现有的搭配数据中，比如从商家模特身上提取的、达人推荐的、从时尚网站获取的，构建商品之间的搭配关系。
+\item 个性化搭配生成推荐：这部分简单介绍我们在搜索中如何给用户推荐一套搭配。
+\end{enumerate}
+
+整体如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp0.png"}
+	\caption{方案简单流程图}
+	\label{fig:dp0}
+\end{figure}
+
+\subsection{方案}
+\subsubsection{模特服饰提取}
+为了能获得更多优质的搭配数据，我们从商家模特中提取上衣、下衣等。我们将该问题转化成human parsing的方式。human parsing是指将一幅人物图像（比如模特图等）分割成不同的部分，即将每个图像像素归为一类，比如上衣、下衣、头发、腿等。它可以认为是语义分割（semantic segmentation）的一种具体应用，与语义分割相似，同时也有自己独特的地方，比如它需要考虑到人的姿势等。
+
+\par 下面先简单介绍近年来业界将深度学习应用于human parsing以及语义分割方面的基本工作，接着再给出我们的方案。（详细的工作见另外一篇文章）
+
+\subsubsection{基于深度学习的语义分割}
+语义分割可被认为是种dense classification，因此，一些在图像分类中表现很好的卷积神经网络（Convolution Neural Network，CNN）结构，比如，VGG[25]、ResNet[26]，通过轻微的改变，能达到语义分割的效果。比如全卷积网络（Fully Convolutional Network ,FCN）[24] 通过将上述网络最后几层全连接层变为全卷积层，以实现语义分割。该方法的分割结果比较粗糙（尤其在边缘），由于其feature maps的尺度在多次卷积后会显著下降。为了避免该问题，Chen et al.[27]在deeplab中提出了dilated convolution，应用于语义分割。PSPNet[28]采用金字塔池化操作（pyramid pooling operation），以整合不同区域的context来获取全局的context信息。还有些其它的结构，比如SegNet[29]、基于mask的结构[30]等，在语义分割中也得到了很好的效果。
+
+\subsubsection{基于深度学习的human parsing}
+作为语义分割的一种具体应用，除了使用语义分割的一些方法，human parsing还需要考虑自己独有的特点，比如在网络结构中加入额外的信息，以提升分割的精度。Liang et al.[31] 提出了Co-CNN结构, 该结构新增了交叉层内容、语义边缘信息等，这种方法使得网络相当复杂。Gong et al.[32] 提出了一种自监督结构敏感的学习方法用于human parsing，该方法需要特殊设计的数据集。
+
+\paragraph{Finer-Net}
+网络级联已经应用于许多计算机视觉的任务中，比如分类、姿态预估、检测等。我们将该思想用于human parsing中，提出了新的human parsing框架，称为Finer-Net。下面简单介绍我们的3阶段Finer-Net。网络的第1阶段首先分割出前景人物区域，下一阶段将原始的输入图片以及上一阶段的结果作为输入，以得到每个像素更细粒度的标签（我们根据实际需要，控制输出的标签的数量）。此外，我们在网络结构中加入人物姿势特征，实验证明这带来了更好的分割结果。具体网络架构如下图所示：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp1.png"}
+	\caption{Finer-Net框架}
+	\label{fig:dp1}
+\end{figure}
+第1阶段将人物图片分割成前后景，第2阶段将照片分割成更细的标签，比如衣服、裤子等，第3阶段输出更细的标签。
+
+\par 人物姿势影响着human parsing的结果，随着姿势的变化，一些细节可能不会被分割的很好，比如坐姿情况下的裤子。如果加入一些先验的知识，这种情况应能在一定程度上得到解决，因此，我们在网络结构中加入了人体姿势信息，该信息是由Convolutional Pose Machines[33]得到的。增加人体姿势信息的网络如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp2.png"}
+	\caption{增加人体姿势的Finer-Net}
+	\label{fig:dp2}
+\end{figure}
+姿势信息被用于前2个阶段，每个阶段使用不同数量的feature maps。
+
+
+\subsubsection{搭配关系构建}
+这部分首先分析目前业界的搭配方案，再在此基础上，给出我们的方案。
+
+\par 如上所述，Veit et al.[19]使用SCNN学习得到每一个搭配单品的特征向量，并以此判断单品之间是否相搭。Li et al.[13]使用基于深度学习的多模态多实例打分模型，提取outfit的特征向量，对一套搭配打分。这些方法有个共同的特点，即提取的都是网络的高层特征，该特征混合了图片的多种信息（颜色、形状等），降低了可解释性。然而，在实际应用中，对于设计者、用户而言，理解组成一套搭配的不同属性是很有必要的，比如该套搭配中单品的颜色是否相搭、款式是否相搭。这就意味着，对于实际的搭配系统，我们需要一个可解释的模型。可解释是指提取出的搭配单品的颜色特征仅仅表示颜色，形状特征仅仅表示形状等。
+
+\par 基于以上分析，我们提出了切分编码网络（partitioned embedding network），该网络有两个部分组成，属性切分模块（attribute partition module）以及切分对抗模块（partition adversarial module）。在属性切分模块中，我们使用多属性标签，确保图片整体编码的不同部分表示不同的属性；在切分对抗模块中，我们使用对抗操作将不同的属性独立起来，这样同时也会提取出我们事先未定义的属性（比如纹理、风格等）。接下来，我们提出了composition graph，使用提取出的切分编码（partitioned embeddings）构建outfit中的搭配关系。
+
+\par 下面详细介绍我们的方案：
+我们首先介绍切分编码网络，将图片整体编码切分成独立的不同部分，以表示不同的属性，然后介绍如何使用composition graph构建搭配关系。
+
+\paragraph{切分编码网络}
+令$I$表示一个搭配单品，$\mathcal{R}(I)$表示对单品的编码。为了保证提取的编码可解释且可切分，需要满足以下2个条件：一方面，整体编码中固定的一部分应该对应具体的属性，另一方面，不同的部分是互相独立的。因此，$\mathcal{R}(I)$可以表示成如下形式：
+\begin{equation}
+\mathcal{R}(I) = [r_{1};r_{2};...;r_{N}],\\
+s.t. \mathcal{P}(r_{i}| \\{ r_{j},j \neq i \\}) = \mathcal{P}(r_{i})
+\end{equation}
+其中，$r_{i}$是指不同的编码部分，$N$是指编码部分的总数。$\mathcal{P}(r_{i}| \\{ r_{j},j \neq i \\}) = \mathcal{P}(r_{i})$表示$r_{i}$独立于$\\{ r_{j},j \neq i \\}$。为了得到可解释、可切分的编码，我们提出了切分编码网络，如图4所示，切分编码网络有两部分组成，属性切分模块以及切分对抗模块，以完成以上2个约束。因此，切分编码网络的loss函数可定义如下：
+\begin{equation}
+\mathcal{L}(I) = \mathcal{L}_{t}(I,Label) + \alpha \mathcal{L}_{a}(I,\mathcal{R}(I)),
+\end{equation}
+其中，$\alpha$是平衡参数，$\mathcal{L}_{t}(I,Label)=\frac{1}{N}\sum_{k=1}^{N}loss(I,Label k)$表示平均每个属性的loss，$\mathcal{L}_{a}(I,\mathcal{R}(I))$为切分对抗loss。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp3.png"}
+	\caption{切分编码网络框架}
+	\label{fig:dp3}
+\end{figure}
+
+
+网络有两个部分组成，属性切分模块以及切分对抗模块。属性切分模块由属性网络$Anet1$,$Anet2$组成，确保$Part 1'$,$Part 2'$分别对应颜色和形状。切分对抗模块包括对抗预测网络$Pnet 1$,$Pnet 2$,...,$Pnet N$ 以及解码网络$Dnet$，对抗预测网络确保整体编码不同部分相互独立，解码网络保证编码包含原始单品的所有有用信息。
+
+
+\paragraph{属性切分模块}
+有许多属性[20,15,16]描述时尚，比如颜色、形状、纹理、风格等。某些属性明确定义较困难（比如纹理、风格），我们将它们统一分为其它属性。因此属性被分为3大类，颜色、形状以及其它属性（纹理、风格等）。
+
+图4 中，$Bnet$用于提取单品的初始编码，然后属性网络$Anet1$,$Anet2$确保整体编码的$Part 1'$,$Part 2'$分别对应颜色属性以及形状属性。
+
+在一套搭配中，颜色是首要考虑的属性，我们使用颜色主题提取方法[6]提取搭配单品前景区域的颜色主题作为颜色标签。使用变分自动编码（Variational Auto-Encoder）模型[12]编码以及解码形状信息。
+
+\paragraph{切分对抗模块}
+经过属性切分模块，$Part 1'$和$Part 2'$分别表示颜色以及形状信息，然而它们之间还会混合各自的信息，其它属性（比如纹理等）也不能找到明确对应的编码部分。
+
+为了解决该问题（解耦各编码部分信息），我们引入了切分对抗模块。切分对抗模块包含对抗预测网络以及解码网络。解码网络保证编码包含原始单品的所有有用信息，对抗预测网络$Pnet 1$,$Pnet 2$,...,$Pnet N$ 确保整体编码不同部分相互独立。在以上2个网络的作用下，整体编码的剩余部分只包含其它属性信息。因此，切分对抗loss$\mathcal{L}_{a}(I,\mathcal{R}(I))$可表示成如下：
+\begin{equation}
+\mathcal{L}_{a}(I,\mathcal{R}(I))= \mathcal{L}_{c}(I,I') + \beta\mathcal{L}_{d}(r_{1},r_{2},...,r_{N}),
+\end{equation}
+其中，$\beta$为平衡参数，$I'$为$I$的解码图像，$\mathcal{L}_{c}(I,I')$表示解码loss，$\mathcal{L}_{d}(r_{1},r_{2},...,r_{N})$互相独立loss。
+
+我们使用对抗操作[17]以达到相互独立性，因此，互相独立loss $\mathcal{L}_{d}(r_{1},r_{2},...,r_{N})$ 包含预测loss$\mathcal{L}_{p}$以及编码loss$\mathcal{L}_{e}$。在预测阶段，每个预测网络$Pnet i$尽可能最大化相应部分$r_{i}$的可预测性，预测loss$\mathcal{L}_{p}$表示如下：
+\begin{equation}
+\mathcal{L}_{p}= \sum_{i=1}^{N}E[r_{i} - \mathcal{F}_{\theta(i)}(r_{1},...,r_{i-1},r_{i+1},...,r_{N})],
+\end{equation}
+其中，$\mathcal{F}$为预测网络$Pnet$，$\theta(i)$为网络参数。在编码阶段， 编码网络$Bnet i$尽可能的让预测网络预测失败，即最小化可预测性。编码loss表示如下：
+\begin{equation}
+\mathcal{L}_{e}= - \sum_{i=1}^{N}E[r_{i} - \mathcal{F}_{\theta(i)}(r_{1},...,r_{i-1},r_{i+1},...,r_{N})],
+\end{equation}
+因此，如果编码器能赢，就解耦了编码的各部分，即通过最小化可预测性，各编码部分能得到解耦。
+
+\subsubsection{Composition Graph}
+我们使用composition graph构建搭配关系，对于每个类目（每个单品对应一个类目），我们首先根据颜色编码，将所有单品聚成$N_{p}$个类中心；接着对每一类，根据形状编码，将属于该类的单品聚成$N_{q}$个类中心；最后对每一类，使用剩余编码聚类得到$N_{r}$个类中心。因此，可以得到$\mathcal{N} = N_{p}N_{q}N_{r}$个聚类中心。这样以后，$\mathcal{G} $可表示如下：
+\begin{equation}
+\mathcal{G}= (\mathcal{V},\mathcal{E},\mathcal{W}),
+\end{equation}
+其中，$\mathcal{V}$为所有聚类中心的向量集合，$\mathcal{E}$和$\mathcal{W}$分别表示边和权重集合。
+
+刚开始，所有向量$v\in\mathcal{V}$之间没有连接，权重初始化为0。如果单品$I \in v_{i}$和单品$I' \in v_{j}$出现在同一搭配套餐中，且$v_{i}$与$v_{j}$之间没有连接，那么在它们之间就创建一个连接，同时将$w_{i,j}$设为1；如果$v_{i}$与$v_{j}$之间的连接已经存在，那么$w_{i,j}$按照如下更新：
+\begin{equation}
+w_{i,j} = w'_{i,j} + \alpha,
+\end{equation}
+其中$w'_{i,j}$表示上一次权重。图5展示了连接过程。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp4.png"}
+	\caption{Composition Graph}
+	\label{fig:dp4}
+\end{figure}
+
+
+当Composition Graph构建完成后，对于一件单品，我们可以从composition graph中得到对应该单品的搭配。我们通过每个类目能够召回的单品数控制生成套餐的时间复杂度。
+
+\subsubsection{个性化搭配生成推荐}
+这部分我们简单介绍下在搜索场景下，如何给用户推荐搭配。基本流程是：当用户输入query（比如大衣），我们会根据用户的行为数据，得出用户的偏好类目（比如牛仔裤、毛衣），再在各自类目下选取top N 的商品，接着我们使用如上所述的Composition Graph，以用户输入query类目下的商品作为主商品，构建用户偏好类目下商品之间的搭配关系，生成搭配套餐，并推荐给用户。
+
+
+\subsection{实验及线上效果}
+\subsubsection{数据集}
+实验中的数据主要来源于3部分，一部分如上所述，从商家模特图中提取出上衣、下衣等，组成搭配套餐；另一部分是商家、达人提供的已搭配好的数据；还有一部分来源于Polyvore.com，该网站是一个以时尚为导向的网站，每天有成千上万的搭配在该网站创建。每个搭配都有点赞数以及搭配商品。我们对原始数据进行了简单的处理，比如选取高点赞数的搭配等，以得到相应的搭配套餐。
+
+\subsubsection{Human parsing效果}
+我们在标准数据集（ATR）[31]、以及淘宝数据上测试分割效果，分别如下图所示：
+
+标准数据集
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp5.png"}
+	\caption{ATR数据集分割结果}
+	\label{fig:dp5}
+\end{figure}
+分别是原始图片、groundtruth、FCN分割结果、Finer-Net分割结果以及加入姿势信息的Finer-Net分割结果。
+
+淘宝数据集
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp6.png"}
+	\caption{淘宝数据集分割结果}
+	\label{fig:dp6}
+\end{figure}
+
+
+\subsubsection{切分编码有效性验证}
+我们使用聚类方法验证我们属性编码的区分能力，并将其与手工属性特征[20]作比较。图8是部分结果。图8(a)表示相比手工特征，我们的颜色编码有更多相似的颜色在一起。图8(b)表示我们的形状编码的聚类结果，有相似的形状以及不同的颜色。在图8(c)中，可以看到，我们的聚类结果有着相似的纹理，不同的颜色以及形状。实验表明，手工提取的特征通常混合其它属性信息，而我们模型的不同编码部分能表示各自的属性信息。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp7.png"}
+	\caption{切分编码有效性验证}
+	\label{fig:dp7}
+\end{figure}
+
+\subsubsection{层次聚类效果}
+我们将提取的切分编码（颜色、形状及其它）按照如上所述的方式聚类，图9是部分结果。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp8.png"}
+	\caption{层次聚类结果}
+	\label{fig:dp8}
+\end{figure}
+
+图9中，每一行表示一类。
+
+\subsubsection{搭配套餐生成结果}
+我们按照如上所述方式，生成搭配套餐，部分结果如图10所示。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp9.png"}
+	\caption{搭配套餐结果}
+	\label{fig:dp9}
+\end{figure}
+
+我们将生成的搭配套餐上线至主题搜二跳页，并在淘宝主搜结果页透出。部分结果见下图：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dp10.png"}
+	\caption{线上效果}
+	\label{fig:dp10}
+\end{figure}
+
+左边为搜索结果页结果，右边为搭配页结果。
+
+\subsection{参考文献}
+\begin{enumerate}
+\item K. Abe, T. Suzuki, S. Ueta, A. Nakamura, Y. Satoh, and H. Kataoka. Changing fashion cultures. arXiv preprint arX-iv:1703.07920, 2017. 
+\item L. Bossard, M. Dantone, C. Leistner, C. Wengert, T. Quack,and L. Van Gool. Apparel classification with style. In Asian conference on computer vision, pages 321–335. Springer,2012.
+\item H. Chen, A. Gallagher, and B. Girod. Describing clothing by semantic attributes. Computer Vision–ECCV 2012, pages 609–623, 2012.
+\item Q. Chen, J. Huang, R. Feris, L. M. Brown, J. Dong, and S. Yan. Deep domain adaptation for describing people based on fine-grained clothing attributes. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 5315–5324, 2015.
+\item W. Di, C.Wah, A. Bhardwaj, R. Piramuthu, and N. Sundaresan. Style finder: Fine-grained clothing style detection and retrieval. In Proceedings of the IEEE Conference on computer vision and pattern recognition workshops, pages 8–13,2013.
+\item Z. Feng, W. Yuan, C. Fu, J. Lei, and M. Song. Finding intrinsic color themes in images with human visual perception.Neurocomputing, 2017.
+\item J. Fu, J. Wang, Z. Li, M. Xu, and H. Lu. Efficient clothing retrieval with semantic-preserving visual phrases. In Asian Conference on Computer Vision, pages 420–431. Springer, 2012.
+\item M. Hadi Kiapour, X. Han, S. Lazebnik, A. C. Berg, and T. L.Berg. Where to buy it: Matching street clothing photos in online shops. In Proceedings of the IEEE International Conference on Computer Vision, pages 3343–3351, 2015.
+\item J. Huang, R. S. Feris, Q. Chen, and S. Yan. Cross-domain image retrieval with a dual attribute-aware ranking network. In Proceedings of the IEEE International Conference on Computer Vision, pages 1062–1070, 2015.
+\item T. Iwata, S. Wanatabe, and H. Sawada. Fashion coordinates recommender system using photographs from fashion magazines. In IJCAI, volume 22, page 2262, 2011.
+\item M. H. Kiapour, K. Yamaguchi, A. C. Berg, and T. L. Berg. Hipster wars: Discovering elements of fashion styles. In European conference on computer vision, pages 472–488. Springer, 2014.
+\item D. P. Kingma and M. Welling. Auto-encoding variational bayes. stat, 1050:1, 2014.
+\item Y. Li, L. Cao, J. Zhu, and J. Luo. Mining fashion outfit composition using an end-to-end deep learning approach on setdata. IEEE Transactions on Multimedia, 2017.
+\item Q. Liu, S. Wu, and L. Wang. Deepstyle: Learning user preferences for visual recommendation. In Proceedings of the 40th International ACM SIGIR Conference on Research and Development in Information Retrieval, pages 841–844. ACM, 2017.
+\item Z. Liu, P. Luo, S. Qiu, X. Wang, and X. Tang. Deepfashion: Powering robust clothes recognition and retrieval with rich annotations. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 1096–1104, 2016.
+\item K. Matzen, K. Bala, and N. Snavely. Streetstyle: Exploring world-wide clothing styles from millions of photos. arXiv preprint arXiv:1706.01869, 2017.
+\item J. Schmidhuber. Learning factorial codes by predictability minimization. Learning, 4(6), 2008.
+\item E. Simo-Serra and H. Ishikawa. Fashion style in 128 floats:Joint ranking and classification using weak data for feature extraction. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 298–307, 2016.
+\item A. Veit, B. Kovacs, S. Bell, J. McAuley, K. Bala, and S. Belongie. Learning visual clothing style with heterogeneous dyadic co-occurrences. In Proceedings of the IEEE International Conference on Computer Vision, pages 4642–4650, 2015.
+\item S. Vittayakorn, K. Yamaguchi, A. C. Berg, and T. L. Berg.Runway to realway: Visual analysis of fashion. In Applications of Computer Vision (WACV), 2015 IEEE Winter Conference on, pages 951–958. IEEE, 2015.
+\item X. Wang and T. Zhang. Clothes search in consumer photos via color matching and attribute learning. In Proceedings of the 19th ACM international conference on Multimedia,pages 1353–1356. ACM, 2011.
+\item K. Yamaguchi, M. H. Kiapour, L. E. Ortiz, and T. L. Berg. Parsing clothing in fashion photographs. In Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on,pages 3570–3577. IEEE, 2012. 
+\item K. Yamaguchi, T. Okatani, K. Sudo, K. Murasaki, and Y. Taniguchi. Mix and match: Joint model for clothing and attribute recognition. In BMVC, pages 51–1, 2015.
+\item J. Long, E. Shelhamer, and T. Darrell, “Fully convolutional networks for semantic segmentation,” in CVPR, 2015.
+\item K. Simonyan and A. Zisserman, “Very deep convolutional networks for large-scale image recognition,” in ICLR, 2015.
+\item K. He, X. Zhang, S. Ren, and J. Sun, “Identity mappings in deep residual networks,” in ECCV, 2016.
+\item L. Chen, G. Papandreou, I. Kokkinos, K. Murphy, and A. L. Yuille, “Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected crfs,” TPAMI,2017.
+\item H. Zhao, J. Shi, X. Qi, X. Wang, and J. Jia, “Pyramid scene parsing network,” in CVPR, 2017.
+\item H. Noh, S. Hong, and B. Han, “Learning deconvolution network for semantic segmentation,” in ICCV, 2015.
+\item P. O. Pinheiro, R. Collobert, and P. Doll′ar, “Learning to segment object candidates,” in NIPS,2015.
+\item X. Liang, C. Xu, X. Shen, J. Yang, J. Tang, L. Lin, and S. Yan, “Human parsing with contextualized convolutional neural network,” TPAMI, 2017.
+\item K. Gong, X. Liang, X. Shen, and L. Lin, “Look into person: Self-supervised structure-sensitive learning and a new benchmark for human parsing,” in CVPR, 2017.
+\item S. Wei, V. Ramakrishna, T. Kanade, and Y. Sheikh,“Convolutional pose machines,” in CVPR,2016.
+\end{enumerate}
+
+
+\section{图像搜索和识别-拍立淘}
+
+以图搜图，是通过搜索图像内容或者视觉特征，为用户提供互联网上相关图像资料检索服务的专业搜索引擎，是搜索引擎的一种细分。移动端的以图搜图是一代又一代的图像人，搜索人的梦想。从90年代开始，学术界，工业界做了很多的努力和尝试。 拍立淘从2014年首次上线之后，通过产品技术的不断打磨，已经成为淘宝每天超过千万UV的应用。在业务指标的增长的同时，沉淀下来了业界领先的图搜算法。我们的目标不仅仅是满足用户以图搜图的好奇心，更是要让用户通过拍照，搜索到淘宝同款或者相似宝贝，简化用户的购物流程，让以图搜图发挥真正的商业价值。
+
+\subsection{拍立淘目前业务状况}
+拍立淘从2014年上线以来，从最初的每天几百UV到如今的每天超过千万UV。拍立淘的稳定增长标志着消费者对以图搜图电商搜索的认可。与传统的基于文字搜索的电商搜索相比，拍立淘只需要用户随手拍一张照片，省去了繁琐的文字描述，简化了用户的购物流程，大大提高了电商购物的体验。
+拍立淘的入口和体验如下：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt0.png"}
+	\caption{}
+	\label{fig:plt0}
+\end{figure}
+
+拍立淘目前覆盖几乎淘宝所有的实体类目：比如衣服，鞋，箱包，瓶饮，配饰，家具，电子，零食，美妆，水果等。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt1.png"}
+	\caption{}
+	\label{fig:plt1}
+\end{figure}
+
+拍立淘的图像搜索和识别技术已经走出阿里集团，向集团外的公司输出，比如三星旗舰手机S8在系统层面集成了拍立淘，用于相机和相册。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt2.png"}
+	\caption{}
+	\label{fig:plt2}
+\end{figure}
+位于海外的客户，也可以通过AliExpress中集成的拍照购物功能，来享受拍照购物的乐趣。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt3.png"}
+	\caption{}
+	\label{fig:plt3}
+\end{figure}
+\subsection{拍立淘的技术框架}
+拍立淘存在典型的技术驱动，在过去的三年多时间，我们不断得通过技术的突破，来实现了业务的增长。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt4.png"}
+	\caption{}
+	\label{fig:plt4}
+\end{figure}
+拍立淘流程主要分为离线流程和在线流程，主要步骤如下
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt5.png"}
+	\caption{}
+	\label{fig:plt5}
+\end{figure}
+
+离线流程：主要是指拍立淘每天离线构建索引库的整个流程，涉及选品、离线抠图、离线抽取特征、构建索引等环节。执行完毕之后，每天会在规定时间完成线上图库的更新。
+在线流程：主要是指用户一张query图上传之后，到最后返回结果的整个中间过程，包含在线类目识别，在线抠图，在线特征提取和在线索引查询等关键步骤。
+	
+\subsection{宝贝选品}
+阿里集团内有上百亿的图片，包含宝贝的主图、SKU、副图、晒单图和详情图等，上万个叶子类目，涵盖电商领域的各个方面。如何从这些海量图片中选出用户最喜欢，最想买的宝贝是一件很有意思的工作。拍立淘的选品大致流程见下：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt6.png"}
+	\caption{}
+	\label{fig:plt6}
+\end{figure}
+
+我们首先会根据用户偏好的叶子类目，以及淘宝黑卖家的规则进行全淘图片库的过滤；由于淘宝上相同或者高度相似的宝贝太多，如果不处理的话，最后的搜索结果中就会出现大量一模一样的宝贝，用户体验很差。因此在做完过滤之后，我们增加了图片去重模块，目的是把一模一样或者高度相似的宝贝去重，优化最后的展示；最后，我们会结合运营需求，给最近一段时间做活动的宝贝打上运营标记。
+
+\subsection{类目预测}
+拍立淘类目是对淘宝叶子类目的一种划分，既需考虑一定的视觉相似性，又需考虑一定的语义相似性。现行类目的叶子类目构成是在算法同学不断探索类目集合构成和精度基础上，同产品沟通商品语义要求的结果，所以类目体系不仅仅是个技术问题，也是个业务问题（有利于消费者认知）。在一个开放的商品搜索平台上，一方面用户输入是无任何限制的，另一方面由于资源、人力和技术进展等原因，在一定的阶段下，不是所有的商品我们都能搜出很好的结果，类目识别成为“逐步推进”、“分而治之”的一种产品和算法策略，同时它也是消费者认知“拍立淘”这个产品的功能及其迭代最直接的“告知”方式。
+目前拍立淘有14个大类，涵盖全淘所有叶子类目
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt7.png"}
+	\caption{}
+	\label{fig:plt7}
+\end{figure}
+
+\subsection{抠图}
+因为商品的背景复杂，主体常常较小，所以为了减少大量背景干扰和多主体的影响，因此需要将搜索目标从图像中提取出来。下面两幅图反应了对于用户的query，进行主体检测和不进行主体检测的搜索结果差异。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt8.png"}
+	\caption{}
+	\label{fig:plt8}
+\end{figure}
+
+第一幅图没有由于进行抠图，搜索结果中背景干扰比较明显，都出现了绿色的背景，而用户真正关心的主体衣服的搜索质量则很差。第二幅图进行抠图之后，搜索结果有了非常显著的提高，主体衣服的匹配程度非常高。
+抠图算法目前我们采用基于SSD的检测算法并做了大量的优化和改进。无论是对于效率，还是在实拍图上的性能，都比baseline获得提升。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt9.png"}
+	\caption{}
+	\label{fig:plt9}
+\end{figure}
+
+\subsection{图像特征}
+拍立淘的图像特征包括深度特征和局部特征。
+深度特征：基于深度学习框架学习出来的图像表示。目前深度学习在图像、语音等领域取得了重大突破，基于深度学习的图像表示在很多任务上已经完胜传统图像特征。拍立淘从立项之初就开始研究深度特征，在这方面积累了大量的经验，这也使得特征成为拍立淘核心竞争力之一，具体细节详见后续章节。
+局部特征：局部特征是图像特征的局部表达，它反应的是图像具有的局部特殊性。局部特征中最具代表性的就是SIFT。拍立淘SIFT进行改进，不仅进行维度压缩，还优化提取速度，同时保证匹配精度不下降。
+
+\subsection{检索索引}
+索引的流程可以分成离线和在线两部分。离线过程对商品图像特征构建索引，在线过程对用户query进行分布式的快速查询。
+在线查询流程主要分为：粗召回 -> 积召回 -> 欧式排序 -> 精排
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt10.png"}
+	\caption{}
+	\label{fig:plt10}
+\end{figure}
+
+拍立淘目前的索引数据量有几十亿，如何高效的构建索引，同时保证在线查询的精度是一个非常具有挑战性的工作，拍立淘在这方面做了很多工作，详见后续章节。
+
+\subsection{排序}
+深度特征从高层提取信息，关注语义鸿沟；局部特征关注图像的局部信息。如果将两者有效的结合起来，相辅相成，既能保证语义上的相似性，又能保证局部细节的匹配，因此我们在索引召回之后，会再进行一次排序，将深度特征和局部特征结合在一起。
+我们会学习一个ranking function，给深度特征和局部特征分配不同的比重，基于最后的score对索引返回结果做二次排序。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt11.png"}
+	\caption{}
+	\label{fig:plt11}
+\end{figure}
+
+上述是拍立淘的各个模块的介绍，下面我们会就拍立淘的三个核心技术：实拍图精度提升；超大规模的向量检索索引；移动端DL进行进一步的描述。
+
+
+\subsection{拍立淘核心技术}
+\subsubsection{实拍图的突破}
+非实拍图主要是指拍摄清晰，背景简单的图片，其中大部分来自淘宝宝贝的原图。对于这种图片，拍立淘的精度已经做的很高。但是对于一个以图搜图商业应用，真正的挑战来自占比用户query 一半的实拍图，这类图和非实拍图差距很大，具有光照，角度，多主体等各种问题
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt12.png"}
+	\caption{}
+	\label{fig:plt12}
+\end{figure}
+为了把实拍图做好，拍立淘不断突破，在各个类目上都有非常显著的提升：
+
+1.数据“掘地三尺”
+
+数据方面，我们利用了拍立淘log数据，晒单数据和主搜i2i数据。并构建相应的深度学习模型进行特征训练。
+\begin{itemize}
+\item 在拍立淘的场景，我们发现用户的点击等有效行为都是针对于同款，因此我们对PVLOG进行挖掘，噪声过滤，形成triplet来进行特征的训练。拍立淘每天产生上千万的图像数据，通过构建基于实拍图的deep pairwise ranking特征学习框架，大幅度提高了实拍图的搜索效果。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt13.png"}
+	\caption{}
+	\label{fig:plt13}
+\end{figure}
+\item 晒单图可以作为一个用户真实实拍图的近似。目前淘宝上用户上传的晒单图总量超过5亿+，但晒单图中含有大量的噪声数据。我们首先对晒单图构造相似度矩阵，得到一个相似度排序，滤除那些相似度较低的噪声数据。接着我们训练一个基于pid同款分类的5万类分类器，由此得到的特征能提高实拍图的精度。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt14.png"}
+	\caption{}
+	\label{fig:plt14}
+\end{figure}
+
+\item 由于同一用户在同一时间段内点击的宝贝具有一定的相似度。通过挖掘主搜的i2i点击数据，对i2i graph进行聚类形成虚拟label进行深度学习得到的中间层表达也可以作为一种特征表示，用于相似度排序。
+\item 除了通过提高特征本身的效果来提高实拍图的精度外，提高实拍图效果的另外一个途径是利用实拍图片来扩充我们的data space。尤其是用户留下的数据，使得整个图搜系统越来越智能。通过下图所示，通过主图+晒单图+LOG图扩充data space，加以manifold distance度量，可以使得同款率提升。
+\end{itemize}
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt15.png"}
+	\caption{}
+	\label{fig:plt15}
+\end{figure}
+
+2. 升级深度学习
+深度学习方面，我们通过Loss函数，网络结构和特征排序框架继续进行创新和突破。
+\begin{itemize}
+\item 首先我们采用了deep pairwise ranking特征学习框架来学习我们的深度特征：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt16.png"}
+	\caption{}
+	\label{fig:plt16}
+\end{figure}
+最大化正/负样本与query之间的距离差来保证特征的效果。
+\item 其次我们采用了属性label和虚拟label训练框架来训练精排的深度特征：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt17.png"}
+	\caption{}
+	\label{fig:plt17}
+\end{figure}
+\item 另外，在类目识别方面，为了进一步提高分类精度，我们采用层次化的类目识别：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt18.png"}
+	\caption{}
+	\label{fig:plt18}
+\end{figure}
+\end{itemize}
+除了拍立淘的大类目之外，还多任务训练一级类目和叶子类目。这种多任务层次化的结构可以进一步提高拍立淘类目预测的精度。
+
+\subsection{百亿引擎}
+拍立淘最初数据容量只有6KW，几百个叶子类目，数据容量非常有限。为了涵盖更多更广的数据源，我们要打造一个容纳百亿级别数据量的拍立淘，面临的挑战包括：
+\begin{itemize}
+\item[-] 特征抽取的提速和特征降维；
+\item[-] 离线构建索引的提速与查询召回的保证；
+\item[-]	 工程架构上的优化。
+\end{itemize}
+
+\begin{itemize}
+\item 特征抽取的提速和特征降维
+当数据量达到百亿级别时，如果特征抽取效率不高的话，离线抽取特征的时间就会变成非常长；其次，在线引擎中硬盘和内存的存储也是一个问题。
+为了解决这一问题，在保证特征精度的情况下，通过对深度学习网络框架的调整，我们将拍立淘的特征的维度，压缩到了原来的1/4，并通过卷积加速、并行计算等策略实现了一倍的提速。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt19.png"}
+	\caption{}
+	\label{fig:plt19}
+\end{figure}
+\item 离线构建索引的提速与查询召回的保证
+数据量爆炸式的增长，对离线构建索引也是一个挑战。拍立淘最初对6KW数据的处理，光聚类就要超过10h以上，而且失败率很高。另外，数据量的增长，会导致引擎召回的不断下降。
+在离线构建索引效率方面，我们首先采用图计算框架提速积量化和粗量化，将资源消耗降为原来的1/3；同时用Onepass K-means优化原始的K-means，在保证效果的前提下，大大压缩了聚类的时间。离线构建索引效率整体提速超过10+倍。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt20.png"}
+	\caption{}
+	\label{fig:plt20}
+\end{figure}
+
+对于引擎召回，我们首先将“近似粗量化”优化成真正的粗量化，同时用积中心近似表达粗中心，从而达到增加中心点而不增加召回时间的效果。在拍立淘的大部分类目中，我们的索引召回和线性召回已经基本一致。
+
+\item 工程架构上的优化
+对了应对百亿级别的数据量，光特征和索引算法升级还是不够的。拍立淘的整个离线流程都是由离线系统进行调度，离线系统的稳定和高效对整个拍立淘流程非常重要。
+从百亿引擎计划开始，离线系统进行了为期4个月的重构，包括对各个算法模块调度机制的优化和性能的提升，最新的离线系统已经支持混布集群，最大化资源的利用。
+\end{itemize}
+
+\subsection{移动端的DL}
+随着高端手机的日益普及，越来越多的任务可以直接放到移动端执行，这样不仅可以减少图片上传带来的时间延迟，同时还可以降低server端的计算成本。
+通过对模型进行压缩和计算并行加速，目前拍立淘已经上线移动端的类目预测和物体检测。后续会有更多的任务放到移动端。采用的核心技术包括卷积的提速，DL网络的裁剪和模型压缩等等。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt21.png"}
+	\caption{}
+	\label{fig:plt21}
+\end{figure}
+
+\begin{figure}[!h]
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/plt22.png"}
+\caption{}
+\label{fig:plt22}
+\end{minipage}%
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/plt23.png"}
+\caption{}
+\label{fig:plt23}
+\end{minipage}
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/plt24.png"}
+\caption{}
+\label{fig:plt24}
+\end{minipage}
+\end{figure}
+
+\subsection{最后的话}
+拍立淘-以图搜图一路走来，得益于算法/工程/产品的充分配合，得益于算法，数据，计算三位一体和大量的用户使用。目前部分解决了用户的拍照搜索需求，但是距离充分满足用户的需求还有一定的距离。项目组正在不断优化，从各个角度去提高。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/plt25.png"}
+	\caption{}
+	\label{fig:plt25}
+\end{figure}
+
+
+\section{主题搜}
+
+\subsection{背景}
+主题搜作为一种非直接商品搜索的新型产品，已经在主搜上经过了一年多的探索和优化。目前的主题搜主要承载两大方面的功能和作用，一是连接搜索和行业知识，比如可以在搜索结果页插入爱逛街，极有家，网红店铺或某些旗舰店的行业垂直市场数据。另外一个是细化用户的搜索意图，引导用户进行成交。比如当用户搜索连衣裙时，将用户偏好的品牌或者风格显式的展现给用户。产品形态如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/zts0.png"}
+	\caption{}
+	\label{fig:zts0}
+\end{figure}
+
+其中，红色框区域内就是投放的主题，第一张图中，该主题的名称为“透视装连衣裙流行趋势”，点击之后就会进入一个商品承接页，里面都是透视装连衣裙相关的产品，我们将这个商品集合成为主题，由于主题是在搜索场景下的投放的，所以叫做主题搜。
+\subsection{主题搜的算法课题}
+在主搜上，我们都知道，要对当前的query和user，选出最好的topN商品给用户并依次展现。而对于主搜场景下的主题推荐，首先需要选出最好的topN主题，然后还要决定主题出现的位置，这个问题要统一解决的话是比较困难的，当然我们现在正在统一解决这个问题，这个文章后续会介绍。这里我首先讲一下我们前期完成的工作，也是比较自然想到的一种解决方法。
+我们对这个问题进行拆分，首先选出最好的topN主题，然后再将主题与商品进行pk，pk的方法可以用bandit算法。那么如何选出topN的主题成为了我们首要解决的问题。很自然的一点，我们要做query+user到topic的ctr预估。
+\subsubsection{基于Bilinear模型的主题个性化}
+query到item的ctr预估基本上是主搜上最老也是最基本的算法，同样的，我们也可以类似的做query到topic的ctr预估，然而，仅仅考虑query维度的信息还远远不够，我们要结合用户信息来做主题的个性化投放，特别是在双十一大促中，主题搜承载了大量的旺铺卖家主题，这里的旺铺主题其实就是天猫的品牌旗舰店，而用户对品牌其实是有明显的个人喜好的，那么这就非常需要做个性化投放。
+\par 在主搜上做个性化是很难做到user\_id维度的，淘宝的有效用户大概有7亿，再加上query维度信息，组合之后的数据是非常庞大的，不说模型训练有难度，光是在线存储都比较困难。所以早期的搜索个性化，多半是通过user\_tag来降维的，但是，user\_tag对用户的描述能力是非常有限的，无非就是年龄，性别，购买力之类的，没有很大的区分度和辨识度。当然，现在也有很多其他的降维方法，比如Online Learning to Rank with Neural Network这篇文章中提到的将query+user通过神经网络来编码，就是一种比较有新意的实现方式。
+\par 在考虑了实际的应用场景之后，经过一些调研，我们决定使用Bilinear模型来做user到topic的个性化偏好。
+bilinear的模型函数如下：
+$$ s_{i,j} = \sum_{a=1}^C \sum_{b=1}^Dx_{i,b}z_{j,a}w_{a,b}  $$
+其中，C和D分别为用户和主题的特征维度,
+
+$$ S_{i,j}$$表示用户i对topicj的偏好分数。
+该式可以变形为：
+ $$    s_{i,j} = w^T(z_{j} \otimes x_{i}) $$
+其中w是权重向量
+进一步改写
+$$   s_{i,j} = x_{i}^TWz_{j}  $$
+其中，W是D*C的特征矩阵。
+从上述公式可以看出，bilinear模型就是要求解组合特征的权重，一种直观的解释就是这些组合特征对结果的贡献有多大。他不像常规的关系特征，比如user到某个topic的ctr等，而是分别求解实体的特征，再来判断特征组合在一起对结果的贡献，所以必然要求这些特征都是能很好的描述实体的，这样做的一个好处就是能很好的做到user\_id维度的个性化，另外一个就是能很方便的在线上使用，我们只需要分别存储user和topic的特征，然后在线进行特征组合并预测。但是这样也有一个很大的缺点，就是特征组合之后维度会变的非常大，所以我们要抽出核心特征，尽量精简有用特征。
+\par 对于user来说，常用的年龄性别购买力等人口统计学特征是必不可少的，实际实现中，我们加入了用户偏好的品牌(或者品牌调性),用户偏好的关键词。对于topic来说，我们主要抽取了topic的品牌(或品牌调性)，topic的主要风格标签(从topic的商品标题得来)。
+模型结构图如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/zts1.png"}
+	\caption{}
+	\label{fig:zts1}
+\end{figure}
+\subsubsection{基于LinUcb算法的在线调控}
+上一节我们只是解决了用户到主题的偏好，下一步，我们要解决query+user到topic的ctr预估，我们在query到topic的ctr预估基础上，把user到topic的偏好分数作为一维特征来做个性化，query到topic的ctr预估我们主要用到了query到topic的统计特征和topic本身的统计特征，模型是放在pora中实时更新的。到目前为止，我们要注意到一个事实，就是我们只是解决了主题之间的排序关系，那么我们选出了topN主题之后，每个主题该放在哪个位置还没确定。我们采取了一种在线调控的方法，就是实时收集主题的收益，与同坑位的商品进行比较，如果比商品收益高，则位置上提，如果比商品收益低，则位置下调。考虑到query下有比较多的主题，为了避免同一个query总是出同一个主题，我们用到了linucb算法[A Contextual-Bandit Approach to Personalized News Article Recommendation](http://www.research.rutgers.edu/\~lihong/pub/Li10Contextual.pdf)
+
+参考资料：
+\begin{enumerate}
+\item http://www.atatech.org/articles/66100
+\item Personalized Recommendation on Dynamic Content Using Predictive Bilinear Models Wei Chu WWW 2009
+\item A Contextual-Bandit Approach to Personalized News Article Recommendation Lihong Li†, Wei Chu WWW 2010
+\end{enumerate}
+
+\section{用户意图识别与主题生成}
+\subsection{背景}
+ 最近两年，主题搜通过不断的打磨锤炼，功能不断完善，承载的需求和业务也越来越多。到目前为止，通过主题搜，我们成功孵化了“今日榜”，“设计控”，“今挑细选”等子栏目。而且实现了跟行业的无缝对接，在三位一体的推进过程中，发挥了自己的能量。
+可能很多人对主题搜还不够了解，下面先简单介绍一下主题搜的产品形态和背景。
+主题搜就是在主搜搜索结果页重，插入一个主题封面，点击封面之后跳到一个商品list的承接页，点击承接页的商品再到商品详情页，如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts2.png"}
+	\caption{}
+	\label{fig:zts2}
+\end{figure}
+
+
+主题封面呈现的商品我们称之为封面商品，我们研究发现,用户点击主题封面的一个很重要的因素是对封面商品感兴趣，而点击主题封面之后进去的是主题承接页，在这承接页里面的商品都有一定的共性，所以我们称为主题搜，其中承接页的第一个商品是封面商品。
+相对于正常的商品搜索，主题搜在整个购物链路上多了一跳，我们知道，在购物路径上每多一跳，效率都会有一定的损失，那么为什么还要做主题搜呢？总结起来，主要有以下几个方面的原因：
+\begin{enumerate}
+\item 很多行业垂直市场没有有效落地的地方
+\item 商家和运营难以直接参与到搜索中来，而他们确实有迫切的需求
+\item 主搜对热点事件，突发事件反映不够灵活及时  
+\end{enumerate}
+另外，我们希望在主题承接页里面，呈现更多跟封面商品相似的商品给用户选择，来弥补一跳的点击率损失。事实也证明，在某些情况下，确实是能带来坑位的整体收益的，我们去年一年基本都在致力于主题效率的提高，同时也达到了效率的翻倍提升。关于这一点，今天这里不再做详细介绍，而今年四月份以来，主题搜一直在探讨一个新的创新方向，那就是如何让主题搜更加智能化？
+\par 主题搜自诞生以来，总体思路都是先创建主题，然后再将这些主题投放出去，这些主题有运营根据行业规则创建的，比如极有家，新品上市，商场同款等，有些是商家活动，比如iPhone首发，品牌店铺承接页等，这些主题基本都是离线打好主题的标放入引擎，然后再计算能投放的query和用户。虽然我们在效率优化的过程中，充分考虑了用户在当前query下是否对某个主题感兴趣，但是事实上，这种主题投放方式，本质上是服务于商品端，而不是用户端，在已有候选主题中挑选出来得分最高的主题也许并不是用户真正需要的。有没有一种可能，我们能猜出用户当前的搜索意图，然后根据这个搜索意图实时的，动态的构建出对应的主题？也就是根据用户的当前环境，智能推测并智能生成，让主题搜更懂用户。 
+\subsection{用户意图识别}
+什么是用户的意图？很明显，在搜索场景下，用户输入的query是用户意图的最直接表现，另一方面，用户有行为的商品是用户意图的承载。基于这两点，我们从query和用户的行为商品来挖掘用户意图。
+\par 一种很直观的做法是，从用户的行为商品中抽取tag，看看哪些tag是用户感兴趣的，这些感兴趣的tag集合就作为用户的意图表征。
+首先，将商品的短标题或者标题进行分词，然后去掉一些无用的分词结果，剩下的分词作为商品的意图tag， 然后从用户的历史行为商品和实时行为商品中根据商品的意图tag来抽取用户的意图tag。
+选取的用户历史行为数据按叶子类目维度进行划分：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts4.png"}
+	\caption{}
+	\label{fig:zts4}
+\end{figure}
+
+
+然后按照上述方法依次计算tag的累积权重，选取权重最大的20个tag作为用户的历史意图表征。
+关于实时数据，我们选取了用户当天的点击tt日志，同样按叶子类目维度来划分，每个叶子类目保存最近的10个实时点击商品，采样之后，累计3个行为之后触发意图tag计算，下一次触发或者是间隔3分钟之后，或者是增量行为商品采样后大于等于2个，双十一当天中，采样率实际设置为0.5。实时数据和历史数据中，意图tag的抽取主要用了MRU（Most Recently Used，最近最多使用）和MFU（Most Frequently Used，最常使用）的做法。
+具体做法如下：
+ 1. 实时tt中的每一个tag，根据时间衰减算出一个基础分数
+\begin{equation}
+score_t = \frac{\alpha}{e^{deltaT}}
+\end{equation} 
+其中，$deltaT = \frac{(timestamp - clktime)}{timePeriod}$，
+timestamp是当期时间戳，clktime是该tag对应的商品的点击时间戳，timePeriod是一个时间系数，实际中设置为180秒
+ 1. 如果该tag出现在历史数据中，取出tag在历史数据中的位置pos(越靠前的tag权重越大)，更新该tag的分数为
+\begin{equation} 
+score_t = {(1 + score)} * {e^{\frac{\alpha - pos}{\alpha}}}
+\end{equation} 
+ 1. 重复1，2的过程，计算实时tag中的每一个tag的累积分数
+\begin{equation} 
+score =  \sum_{t}{score_t}
+\end{equation} 
+ 1. 处理历史tag中，没有出现在实时日志中的剩余tag，每个tag对应的分数为：
+\begin{equation} 
+score = e^{\frac{\alpha - pos}{\alpha}}
+\end{equation} 
+ 1. 筛选分数最高的N个tag作为用户的有意图tag集合，实际中N=16
+
+上述做法其实遵循的就是两个原则，第一个就是实时出现的tag如果同样出现在历史数据中，分数会比较大，也就是看用户是不是最经常点击这样的tag，第二个就是用户点的越多，分数越大。如果两个tag，一个只出现在实时数据中，一个只出现在历史数据中，则根据公式(1)(4)进行比较，这两个公式都是根据数据分析和实验测试调试出来的，从公式可以看出，3分钟之内点击的tag分数大于历史tag，7分钟之内点击的tag分数大于排在第7位之后的历史tag分数。
+这里想说的，tag抽取中有很多经验性和实验性的东西，比如说为什么时间系数是180秒，公式(1)和(4)为什么要这样设计？基本都是数据分析结合实验测试之后得来的，这里不详细介绍，效果如下图所示。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts3.png"}
+	\caption{}
+	\label{fig:zts3}
+\end{figure}
+
+上图中，recent\_tag是历史抽取出来的意图tag，nid\_list是用户实时点击商品列表，result\_tags是实时行为和历史行为根据上述方法计算出来的最终意图tag，这些tag同时也会作为召回条件，然后通过query来过滤相关性。拿图中的实例数据来说明一下：
+\begin{itemize}
+\item recent\_tag:宽松 牛仔裤 加绒 加厚 长裤 小脚 女裤 女装 哈伦裤 秋冬 松紧腰 冬季 哈伦 显瘦 高腰 保暖 大码
+\item nid\_list:559630043600:烟灰色 高腰 加绒 牛仔裤 小脚裤 冬装 大码 加厚 全棉 保暖裤 铅笔裤 收腹:1510898301;559558597645:松紧腰 加绒 牛仔裤 长裤 秋冬 百搭 宽松 裤子 高腰 哈伦裤:1510898242;559690807438:高腰 牛仔裤 加绒 长裤 秋冬 大码 胖mm 弹力 收腹 加厚 保暖 小脚 铅笔裤:1510898209
+\item result\_tags:牛仔裤 加绒 加厚 长裤 宽松 秋冬 高腰 小脚 哈伦裤 大码 松紧腰 收腹 铅笔裤 保暖 冬装 保暖裤
+\end{itemize}
+
+当用户搜索“女装/女士精品 >> 牛仔裤”类目下的query，比如牛仔裤，召回效果等同于用下列所有query一起去召回，然后统一排序：
+
+牛仔裤 | 牛仔裤 加绒 | 牛仔裤 加厚 | 牛仔裤 长裤 | 牛仔裤 宽松 | 牛仔裤 秋冬 | 牛仔裤 高腰 | 牛仔裤 小脚 | 牛仔裤 哈伦裤 | 牛仔裤 大码| 牛仔裤 松紧腰 | 牛仔裤 收腹| 牛仔裤 铅笔裤| 牛仔裤 保暖 | 牛仔裤 冬装 | 牛仔裤 保暖裤
+
+
+'|'号分隔的是每个query，为什么要保留这么多关键字，为什么这些意图tag是用OR的关系去召回，而不是AND关系召回？关于这一点，主要是考虑到，用户的意图往往是多方面的，并不是确切的某一个，或者说，用户会同时偏好多种意图tag，另外一方面，我们希望在主题承接页里面，能呈现跟用户相关，但是同时也是比较丰富的商品给用户选择。
+图中的title字段，是生成的意图主题，这部分后面会详细介绍。
+整个系统架构如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts5.png"}
+	\caption{}
+	\label{fig:zts5}
+\end{figure}
+
+\subsection{意图主题生成}
+上一节中， 详细介绍了用户意图tag的抽取，并将这些tag作为召回条件去召回主题商品，但是意图主题要在前端展示，还需要一个主题标题，这个标题对主题起一个概括性的作用，给用户一些显式的提示。
+随着深度学习在翻译领域上的突破性进展，越来越多的研究工作也将翻译模型应用在文本生成，文本摘要上面，这方面比较经典的工作有
+\begin{enumerate}
+\item lya Sutskever et. [Sequence to Sequence Learning with Neural Networks](https://arxiv.org/abs/1409.3215) NIPS 2014 2014.9.10 
+  Google首次提出的seq2seq模型，encoder-decoder网络结构
+\item Dzmitry Bahdanau, KyungHyun Cho and Yoshua Bengio [Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) ICLR 2015 2014.9.1 Bahdanau首次将attention机制引入nmt中来
+\item Yonghui Wu et. [Google's Neural Machine Translation System: Bridging the Gap between Human and Machine Translation] (https://arxiv.org/abs/1609.08144) ArXiv.org 2016.9.26 Google的GNMT模型，采用lstm + attention + 残差连接，当时的state-of-the-art
+\item Jonas Gehring et. [Convolutional Sequence to Sequence Learning](https://arxiv.org/abs/1705.03122) 2017.5.8 Facebook 提出的convS2S模型，相对于Google的翻译模型，convS2S能并行化，同时也达到了当时的state-of-the-art
+\item Ashish Vaswani et. [Attention Is All You Need](https://arxiv.org/abs/1706.03762) 2017.6.12
+Google提出的一种仅用attention来做翻译的模型，直接抛弃RNN和CNN网络结构，达到了目前的state-of-the-art
+\end{enumerate}
+这里的工作，总体框架都是用了seq2seq模型，encoder-decoder结构，然后结合业务场景做了很多优化，其中《智能化文案生成在精准定向广告领域的应用》更是结合了三篇顶级论文(1. 4. 5.)，效果也非常好。所以在这里也没有特别新的东西可讲，实际上，Google首次提出的seq2seq模型效果就已经能达到很好的效果了，今天在这里主要讲一下我在用seq2seq模型来做意图标题生成中，一些没有被侧重提到的一些点。
+\subsection{样本构造与模型训练}
+跟《智能写手--深度学习在文本内容生成的实践》中的一样，我们也用清单数据来构造样本，不同的是，我们不是随机挑选清单商品来代表清单，而是用出现频次最高的60个tag来表示清单，这样的样本大概有100W。另外，因为实际场景中，输入的tag长度是不定的，我们还需要模型对不同长度的输入tag都能得到鲁棒的生成结果，所以还需要构造一部分样本来适应不同长度的输入tag，我的做法是，对这100W样本，根据输入tag的长度随机按照(0.3,0.7)采样，这样又产出了100W样本，在这200W样本中，输入tag的平均个数是25.
+另外有一点，跟翻译任务不同，标题生成其实并不是很关心输入tag的顺序，但是实际上，seq2seq由于是RNN网络结构，对tag的输入顺序是比较敏感的。也就是说，对于完全相同的tag集合，当你改变tag之间的顺序输入模型之后，得到的结果可能会千差万别，甚至对于样本没有完全覆盖到的顺序，模型无法生成合格的标题。《阿士比亚：搜索团队智能内容生成实》也提到了这个问题。那么怎么解决这个问题呢？我们开始想到的是，把输入样本的tag按照字典序排序，然后再训练，事实上，这种做法的效果是反作用的。后来分析，这样构造的样本，一定程度上消除了样本的差异性(很多样本排前面的几个输入tag完成一样，但是输出标题却大不同)，模型很难从这种差异性削弱的样本中，学到decoder网络。所以要解决这个问题，得从模型本身上做优化，比如取消位置embedding，但是最有效的方法，经过试验表明，还是构建稠密样本最为有效，上面提到的随机采样就是一种办法。另外，我曾经想到，Facebook的convS2S模型，采用的是卷积网络，而卷积具有平移旋转不变性，自然对输入顺序没那么敏感。后来经过试验证明，convS2S模型在这方面确实有优势，但是也只能在一定程度上解决，毕竟卷积运算是有卷积窗口大小的.
+
+\subsection{seq2seq与convS2S比较}
+经典的seq2seq网络结构如下图所示：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts6.png"}
+	\caption{}
+	\label{fig:zts6}
+\end{figure}
+
+图中左边浅蓝色的是encoder模块，将输入编码为一个向量V；右边浅紫色部分是decoder模块，其中v作为decoder模块的初始隐藏输入。
+\begin{equation}
+P(y_1,\cdots,y_T'|x_1,\cdots,x_T)  = \prod_{t=1}^{T'}{P(y_t|v,y_1,\cdots,y_{t-1})}
+\end{equation} 
+seq2seq+attention+双向lstm+残差链接的GNMT网络结构如下：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts7.png"}
+	\caption{}
+	\label{fig:zts7}
+\end{figure}
+
+attention向量的计算：
+\begin{equation}
+s_t = AttentionF unction(y_{i−1}, x_t)
+\end{equation} 
+\begin{equation}
+p_t = \frac{e^{s_t}}{\sum_{t=1}^{M}{e^s_t}}
+\end{equation} 
+\begin{equation}
+a_i = \sum_{t=1}^{M}{p_tx_t}
+\end{equation} 
+Facebook的convS2S模型结构
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts8.png"}
+	\caption{}
+	\label{fig:zts8}
+\end{figure}
+
+这个模型复杂一点，所以多说两句。
+1）模型的输入序列 **e** = {$e_{1},\cdots,e_{m}$}：$e_{i} = w_{i} + p_{i}$，$w_{i}$表示$x_{i}$的word embedding, $p_{i}$表示$x_{i}$的position embedding
+2）Decoder的输入序列**g** = {$g_{1},\cdots,g_{m}$}同样由两部分组成，上一个输出词的word embedding以及对应的position embedding
+3)  GLU单元计算函数
+![image.png](http://ata2-img.cn-hangzhou.img-pub.aliyun-inc.com/2c1a569141e749e1a7e53396f429cc13.png)
+4）第$l$层卷积中，第$i$个输出的隐层向量：
+\begin{equation}
+h_{i}^{l} = v(W^l[h_{i - k/2}^{l−1},\cdots,h_{i + k/2}] + b_{w}^{l}) + h_{i}^{l-1}
+\end{equation} 
+其中，$W^{l}$表示第$l$层的卷积核，$h_{i}^{l-1}$表示残差连接。k表示卷积窗口作用的输入元素个数。
+5）Decoder网络的第$l$层中，第$i$个输出和第$j$个输入的attention值计算方法如下：
+\begin{equation}
+d_{i}^{l} = W_{d}^{l}h_{i}^{l} + b_{d}^{l} + g_{i}
+\end{equation}
+其中，$g_{i}$是前一个输出词的embedding向量，d是输入元素embedding的维度。
+\begin{equation}
+a_{ij}^{l} = \frac{e^{d_{i}^{l}z_{j}^{u}}}{\sum_{t=1}^{m}{e^{d_{i}^{l}z_{t}^{u}}}}
+\end{equation}
+式中$z_{j}^{u}$表示Encoder第$u$层(也就是最后一层)的第$j$个隐层状态
+6）Decoder网络的第$l$层第$i$个目标输出的attention向量就为：
+\begin{equation}
+c_{i}^{l} = \sum_{j = 1}^{m}{a_{ij}^{l}(z_{j}^{u} + e_{j})}
+\end{equation}
+7）得到$c_{i}^{l}$之后，将其加到Decoder当前层的隐层状态$h_{i}^{l}$中，然后再输入到decoder的第$l+1$层中，最后，在decoder的第$L$层可以得到最终的隐层状态$h_{i}^{L}$
+8)decoder输出
+ \begin{equation}
+p(y_{i+1}|y_{1},\cdots,y_{i},x_{1},\cdots,x_{j}) = softmax(W_{o}h_{i}^{L} + b_{o})
+\end{equation}
+convS2S模型要比GNMT模型难理解一些，这里可能也有理解不对的地方，欢迎大家指正。
+那么，convS2S相对于attention based seq2seq模型，到底哪个效果好呢，在翻译任务里面的效果，论文都有详细的对比结果，这里不在详细介绍，我们来看一下，在我们这个标题生成场景下，到底哪个模型好呢？
+随机挑选一些case
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts10.png"}
+	\caption{}
+	\label{fig:zts10}
+\end{figure}
+
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\linewidth]{"fig/zts9.png"}
+	\caption{}
+	\label{fig:zts9}
+\end{figure}
+
+从上述可以看出，seq2seq模型可以学到更多的细节,句式比较丰富，从前3个非常相似的样例可以看出。convS2S模型产出的标题样式比较相似，比如时尚又保暖，保暖又显瘦，穿出优雅气质，穿出大长腿等。但是convS2S模型有一个很好的优势是产出的标题出错率非常低，而且训练速度比seq2seq快了5倍以上。更多的例子这里由于篇幅限制不再枚举。实际统计中，seq2seq模型的出错率也是要大于convS2S模型的。
+
+\section{锦囊}
+\subsection{背景介绍}
+为了给用户提供更方便快捷的导购渠道，我们在搜索结果页中插入了一些导购标签，称之为“锦囊”。锦囊主要是为了协助用户继续细化，探索，以找到想要的结果。其产品形态如下图所示：
+
+\begin{figure}[!h]
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/jn0.png"}
+\caption{锦囊产品形态}
+\label{fig:jn0}
+\end{minipage}%
+\begin{minipage}[t]{0.5\linewidth}
+\centering
+\includegraphics[width=0.5\linewidth]{"fig/jn1.png"}
+\caption{}
+\label{fig:jn1}
+\end{minipage}
+\end{figure}
+
+目前的锦囊有多种不同的类型，如基本的标签词，品牌，搭配推荐以及相关搜索等不同类别的锦囊。当用户发起搜索请求时，锦囊系统会根据用户输入的Query，以及用户本身的信息，结合当前的页面情况，给用户返回不同类型的锦囊。其系统架构图如下所示：
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/jn2.png"}
+	\caption{锦囊系统架构}
+	\label{fig:jn2}
+\end{figure}
+在每个锦囊模块中，会根据当前的Query计算出不同的锦囊词，同时根据用户以及Query的信息对锦囊词进行排序，以更好的满足用户需求。在最后的输出总控模块中，会根据当前的页数，用户的偏好等因素，给用户返回不同类型的锦囊。这几点的细节在后面详细描述。
+
+\subsection{离线标签生成}
+\subsubsection{标签挖掘}
+我们从淘宝海量的商品标题和用户搜索的Query中挖掘标签，首先将大量低质量的商品和低搜索量的Query过滤掉进行降噪，通过分词算法将较长的标题和Query的原始素材分成细粒度的term，作为一个标签；为了防止分词过于太细，我们还使用n-gram算法对相邻term进行重新组合，计算新词的左右熵（文本片段左邻字集合与右邻字集合的随机性，随机性越高，越可能是新词）和凝固度（文本片段同时出现拼在一起的概率，概率越高越可能是个新词），从而确定它是否也是一个标签。
+\subsubsection{标签海选}
+每个挖掘的标签来源于商品标题或用户搜索Query， 对于来源于商品标题的标签, 将商品的点击，成交，成交金额等特征反馈到标签上，进行线性加权得到一个分数；而对于来源于搜索Query，将Query的搜索次数,引导商品点击，引导商品成交，引导商品成交金额等特征反馈到标签上，进行线性加权得到一个分数；分别对上述两个来源的标签综合进行分数的平滑，从而作为最终海选召回的分数。当分数超过一定阈值，才有可能被召回。
+
+\subsection{标签排序}
+我们在海选召回的标签基础上，通过机器学习模型进行精排。
+\subsubsection{样本选择}
+由于我们的业务目标是提升锦囊引导的成交指标，因此我们将用户点击锦囊后对商品有点击或成交的行为日志作为正样本，用户不点锦囊或点击锦囊后没有对商品点击或者成交作为负样本。由于负样本过多，我们进行了随机裁剪采样。
+
+\subsubsection{特征选择}
+在特征选取上，使用了搜索Query, 用户(User), 标签(Tag)这三个对象的特征以及它们之间的组合特征,  另外还对标签进行id序列化，将标签的id作为特征加进去。特征主要包括：
+用户维度：
+\begin{enumerate}
+\item Query维度；
+\item 标签维度；
+\item <Query, Tag>维度；
+\item <User, Tag>维度；
+\item <User群体，Tag>维度；
+\item <Query, User, Tag>特征；
+\end{enumerate}
+
+\subsubsection{模型训练}
+我们分别尝试了LR（Logistic Regression）, GBDT（Gradient Boosting Decision Tree）, FM（Factorization Machine）, GBDT+LR融合，GBDT+FM融合等传统机器学习模型，在相同的训练集和测试集上进行训练，以确认模型效果的可比性。我们通过不同模型的对比发现，一般情况下，模型越复杂，它的准确率会越高，但是相应的训练成本会变高，通过权衡模型效果和训练的成本，结合业务自身的特点，我们选择了GBDT+LR融合模型最为最终模型。但这只是现阶段的一个模型选择，其他模型仍然在不断优化中，相信不久的未来肯定会有更加优秀的模型来取代它。
+\par 由于传统模型对特征工程和业务理解能力的依赖较高，我们现在也在尝试Deep Learning进行训练。
+
+\subsubsection{基于强化学习的类型和位置调控}
+当用户在搜索中发出一个query，看到页面，把当前页面下用户的一些特征作为此时的状态，我们要学习的策略就是在这种状态下应该给出什么类型锦囊，从而转移到下一个页面下，reward也应该根据目标进行设定。 
+\begin{enumerate}
+\item state     
+我们设计State能包含用户在当前query下的特征以及此时的实时特征,主要有：
+\begin{enumerate}
+\item 长期特征 
+\begin{itemize}
+\item User 特征：性别，年龄，购买力等；     
+\item User 历史上对锦囊综合的以及各类型锦囊的展现点击等情况；     
+\item Query的特征；     
+\item 当前Query下锦囊综合的以及各类型锦囊的展现点击等点击情况； 
+\end{itemize}
+
+\item 实时特征 
+\begin{itemize}
+\item 当前所在Page；     
+\item 当前页之前用户最近100次 PV中对各类型的点击情况；     
+\item 用户最近五个动作类型（点击，浏览，购买等）；     
+\item 用户最近点击的五个商品的特征；
+\end{itemize}
+
+\end{enumerate}
+\item 动作     我们学习的目标就是在当前页，对于特定用户状态，出什么类型的锦囊，因此这里我们直接把要出的锦囊类型作为动作。
+
+如下图：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/jn3.png"}
+	\caption{}
+	\label{fig:jn3}
+\end{figure}
+
+\item 奖赏函数 
+Reward Function决定了我们想要引导锦囊agent去优化的方向，也即是优化目标。当我们设定了不同的目标时，reward应该做出相应的调整: 单纯最大化锦囊的CTR时，可以有类似下面的设定（其中，x表示当前query下点击的锦囊的页码）
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/jn4.png"}
+	\caption{}
+	\label{fig:jn4}
+\end{figure}
+
+\end{enumerate}
+
+再结合引导成交等需求，可以有类似如下的设定：（其中，y, z, I代表翻页页数，点击次数，是否购买）
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/jn5.png"}
+	\caption{}
+	\label{fig:jn5}
+\end{figure}
+
+\subsubsection{学习算法}
+
+\paragraph{A3C}
+锦囊候选类型，一开始没有引入属性pid类型，锦囊类型只有有限的几种，如相关搜索、选购热点、细选等，因此我们采取了A3C算法，直接把类型当做动作，用critic网络来学习值函数，用Actor网络来学习policy，actor网络最后输出的值经过softmax可以认为是采取各个动作的概率值，Actor网络形式如下所示
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/jn6.png"}
+	\caption{}
+	\label{fig:jn6}
+\end{figure}
+
+ \paragraph{DQN }
+ 当我们把属性pid引入到锦囊中后，候选的锦囊类型(即动作)一下子增加到两万多种。如果我们还是采用之前的A3C方法，网络的输出需要有两万多个节点，显然是不适用的。因此，我们采取了用DQN+类型ID Embedding的形式来进行学习。也就是说，对每一个候选动作a，先进行embedding，再和s过来的节点进行concat，之后学习的就是他们的Q值，然后再每一个具体query下进行选择的时候，计算每一个可选的ID的Q value，从而进行决策，这里只用到了一个网络。如下图：
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/jn7.png"}
+	\caption{}
+	\label{fig:jn7}
+\end{figure}
+
+\subsection{算法改进}
+\subsubsection{Stratified Sampling Replay}
+由于我们获取的是实时数据，这就可能导致不同的时间段获取到的用户分布差异较大，从而实时学习的模型对受到数据的影响，导致学习方差加大。     为了减弱这一影响，可以利用Stratified Sampling技术。比如，可以对用户的年龄分布，性别分布，购买力分布进行统计，获取一个较为稳定的比例。之后，在一般的random replay的基础上做一些改变，每次的采样遵循此比例进行分层的采样方法，使得样本更加的稳定，学习的方差也会更小。 
+\subsubsection{基准桶实时CTR修正}
+除了用户群体分布变化之外，每一天不同时间段的用户总数，用户使用习惯也会发生变化，从而导致了非模型引发的reward变化（模型没有变化，整体CTR发生提高，reward提高，而误认为是模型的正向作用），这就使得学习的评价指标不稳定，可能产生波动的情况。     因此，我们加上了一个比较基准，利用kmonitor实时的统计基准桶里面的用户行为，CTR等信息，利用此来修正reward，比如可以设置为： reward=原始reward-基准桶reward（强迫模型朝着比基准桶更好的方向发展，而不是受一天中不同时间段的影响）。 
+\subsubsection{引入Thompson Sampling}
+在采样方法上，在传统强化学习的方法之外，也尝试了Thompson Sampling的方法，该方法主要是去维持每一个类型beta分布来进行学习。
+
+\section{下拉推荐}
+
+\subsection{背景介绍}
+在搜索链路的前端，我们提供了下拉推荐服务，当用户在搜索框中输入部分关键词时，下拉菜单会展示几条推荐的关键词供用户选择，点击下拉关键词后直接跳转到相应的搜索结果页。pc和无线端产品形态分别如图1、图2所示。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/xl0.png"}
+	\caption{淘宝下拉推荐}
+	\label{fig:xl0}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/xl1.png"}
+	\caption{手机淘宝下拉推荐}
+	\label{fig:xl1}
+\end{figure}
+
+下拉推荐作为互联网搜索产品的“标配”之一，应用非常广泛，只要有搜索框的地方都可以提供该服务，目前在淘宝的首页、搜索结果页、店铺搜索页、店铺内首页等页面都可以看到下拉推荐的结果。除了淘宝，天猫、闲鱼、海外淘、村淘等平台的下拉推荐服务目前也是由搜索事业部提供的。
+下拉推荐的主要功能有三个：一是预测用户的搜索意图，缩短搜索路径，让用户更“省力”；二是在用户的搜索意图以外，发掘潜在的兴趣点；三是配合节日、促销等活动，展示特殊的关键词，定向导流。由于本身的产品定位和已经形成的用户习惯，目前下拉推荐引导的pv在搜索的总pv中占比超过40\%，是所有搜索导购类产品中流量最大的。
+
+\subsection{系统架构}
+下拉推荐从客户端到服务端的结构如图3所示。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/xl2.png"}
+	\caption{下拉推荐系统结构图}
+	\label{fig:xl2}
+\end{figure}
+用户在搜索框每输入一个字符都会请求一次下拉推荐服务，流量很大，且对延迟要求高，因此下拉推荐有独立的服务端集群，直接与客户端交互。客户端发送的请求在搜索的router服务器被均匀分成n个部分，其中大部分被分配到服务端的主集群，剩余的作为测试流量分配到bts集群，以便开发同学做各种在线a/b测试。目前还有少数的流量来自于搜索的sp服务器，主要是搜索历史词和lazada下拉推荐的请求。
+
+\subsection{离线数据	}
+从图3中可以看到，下拉推荐服务端使用的数据主要来源于两部分，DII索引和igraph存储。
+
+\subsubsection{DII数据}
+DII是搜索事业部研发的一个链式处理服务框架，它本身提供了将odps表build成本地索引的功能。索引数据是加载在服务器内存中的，适用于查询频繁、延迟低、数据量不大的场景。具体到下拉推荐业务中，我们首先从搜索日志中整理出用户过去一段时间内的搜索关键词及其相关的一些数据，保存到odps表中。这些搜索关键词是下拉推荐的数据源。我们也尝试过人为构造一些新的关键词，这样做有助于扩大召回并增加独立query数，但是效果不符合预期，这部分的工作还在尝试中。然后，DII会将这些query维度的数据build成索引，供线上查询使用。
+\par 为了满足业务的多种召回需求，我们针对性地构造了多种形式的索引结构，包括以下几种：
+\begin{enumerate}
+\item 前缀索引，最常见的形式，如“连”召回“连衣裙”。
+\item 全拼索引，满足用户直接输入拼音的场景，如“lianyiqun”召回“连衣裙”。
+\item 简拼索引，满足用户打字时输入拼音首字母的习惯，如“lyq”召回“连衣裙”。
+\item 分词索引，用于前缀索引召回不足的情况，如“休闲裤 牛仔”召回“牛仔休闲裤2017”。
+\end{enumerate}
+\subsubsection{Igraph数据}
+Igraph是搜索事业部研发的一个在线分布式存储和计算系统。同样地，它也具备将odps表数据build成线上kv/kkv格式索引的功能。Igraph数据并不是存在内存中，属于外部服务，线上查询主要方式是异步的两段式请求，适用于查询次数少、延迟较高、数据量很大的场景。下拉推荐业务中主要是将用户维度的相关数据保存在igraph中。
+很重要的一点是，igraph的数据并不是“离线”的，它支持大规模的实时计算和更新，因此很多重要的实时特征和模型都是存储在igraph中。
+\subsection{在线逻辑}
+与绝大多数的推荐场景相同，下拉推荐的线上逻辑也可以分成召回和排序两部分。
+\subsubsection{召回}
+召回逻辑相对比较简单，首先对用户的输入query做基本的处理，如大小写转换、繁简转换、全半角转换、汉字拼音转换，然后查询索引，按照一定规则召回数百条候选的下拉query。召回时大致分为以下几种情况：
+\begin{enumerate}
+\item 用户输入的query不包含英文，仅查询中文的前缀索引即可。
+\item 用户输入的query仅包含英文，需要同时查询全拼索引和简拼索引。
+\item 用户输入的query同时包含中文和英文，先将中文转换成拼音，然后按照全英文query召回，最后对召回结果做过滤，需要满足原始query的中文要求。
+\item 以上召回的皆为满足前缀要求的结果，如果前缀召回的结果数量不足，则查询分词索引作为补充。
+\end{enumerate}
+
+除了单纯依靠query查询索引之外，还可以使用query+类目的方式来召回，只需要将类目字段也build进索引数据，然后使用and逻辑查询即可。这样做可以增加召回结果的类目多样性，类目也可以换成其他维度的信息。
+\subsubsection{排序}
+我们构建的query索引数据中包含一个静态分字段，用来表示该query的整体质量，build索引时已经对静态分字段做了倒序排序，因此召回结果的同时，已经完成了对结果的粗排。精排过程是算法工程师们各显神通的地方。下拉推荐的排序大体上经过了三个阶段。
+\par 第一阶段是静态分排序。我们为每条query离线计算好一个静态分，该分数仅与query本身的质量相关，计算方式是query维度特征的加权求和，特征主要包括query的历史统计值，如pv、ipv、ctr、cvr、成交额、客单价、返回结果数等，权重是人工根据线上效果进行调整的。线上只对候选词的静态分排序，返回topN的结果。这种排序方式非常依赖于静态分的质量，且由于静态分与用户无关，对于所有用户排序结果都是一样的，千人一面。
+\par 第二阶段是多特征人工排序。为了实现个性化排序，除了静态分之外，我们逐步加入了用户维度的一些特征分，如类目相关性、term相关性、性别相关性等，所有这些特征分再进行加权求和，此时权重仍然是根据线上效果人工设置的。随着特征分越来越多，为了加快权重调整的频率，我们采用了mab(multi-armed bandit)的方法进行参数选择。此时的排序已经能实现“千人千面”的效果。
+\par 第三阶段是机器学习排序。面对越来越多的特征，人工调参费时费力，此时需要机器学习算法发挥威力。工业界使用机器学习模型的一般做法是，确定好优化目标、样本选取方式及模型后，快速上线观察结果，特征方面可以小步快跑，采用先加后减的方式，模型参数也是根据线上性能和指标进行逐步调整。下拉推荐机器学习排序的流程如图4所示
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/xl3.png"}
+	\caption{下拉推荐ltr流程}
+	\label{fig:xl3}
+\end{figure}
+从我们的实践经验来看，影响机器学习算法效果的几个因素，重要程度为目标>样本>特征>模型。
+目标，也就是label，直接影响了算法优化的方向，一个以点击率为目标的算法无法保证排序结果也能提升转化率指标。但是实际情况中的优化目标往往不止是一维的，需要做多目标的组合。下拉推荐的主要目标是提高引导的pv占比，即使用率。
+样本通常有两种来源：
+\begin{enumerate}
+\item 人工标注，优点是准确率高，噪音少，标注结果可定制，缺点是数量少，获取成本高，容易受标注人主观因素影响，尤其是考虑个性化特征时；
+\item 线上日志，优点是数量多，获取成本低，缺点是结果维度单一（用户点或者没点），噪音多。
+\end{enumerate}
+考虑到机器学习算法对样本量严苛的要求，下拉推荐使用的是第二种方式，构造样本时有两点对算法效果的影响比较大，一是采样方式，具体到不同业务可能适合不同的方法，我们尝试过很多种，如随机，skip above，过采样，欠采样以及不同的样本比例。二是样本天然有偏，最好做一些针对性的处理，比如根据展示位置设置不同的权重。
+特征，在深度学习方法普及之前，可能是工程师们深耕细作的最主要工作。常见的说法是“特征决定算法的上限，模型决定下限”，足见其重要程度。目前下拉推荐用到的特征分为以下几类：
+\begin{enumerate}
+\item 下拉query自身的特征，如静态分，下拉query长度等；
+\item 用户query-下拉query特征，如是否前缀召回，长度差，ctr等；
+\item 用户自身的特征，如性别，年龄，购买力，手机系统等；
+\item 下拉query-用户特征，如是否历史搜索词，类目偏好度，term偏好度等。
+\end{enumerate}
+
+模型，目前下拉推荐线上使用的是LambdaMART（gbdt），主要原因是以下几点：
+\begin{enumerate}
+\item 工业界广泛使用，如微软、facebook等都有相关论文发表；
+\item 下拉推荐的业务场景是个排序问题，适合pairwise loss；
+\item 对特征处理的要求低，不需要做很多归一化、离散化的工作；
+\item 泛化性好，支持多目标优化；	
+\item 公司内部已经有成熟的mpi版本可以直接使用。
+\end{enumerate}
+\subsection{基于online learning和dnn的下拉推荐}
+目前下拉推荐对算法模型的进一步探索集中在两个方向：online learning和dnn。
+Online learning的流程如图5所示
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/xl4.png"}
+	\caption{Online learning流程图}
+	\label{fig:xl4}
+\end{figure}
+与离线批量学习的最大区别就是，把模型训练的过程从线下搬到了线上。整个训练模型、更新参数的过程都依托于Porsche（前身是pora）平台。Porsche是类似parameter server架构的在线计算平台，已经封装了几种常见的机器学习模型。样本的数据源从odps表换成实时的tt日志流，query, user相关的外部特征从odps表导入hbase，训练生成的模型存到igraph中供线上代码查询。
+在线学习优点包括：
+\begin{enumerate}
+\item 数据量非常大时离线学习也面临困难，流式数据能避免这个问题；
+\item 捕捉到模型随时间的变化，尤其是在双十一大促这种实时性非常强的情况下；
+\item 机器学习模型的更新有一个迭代的过程，在线学习能缩短这个周期。
+\end{enumerate}
+下拉推荐在应用时面临的一个问题是，线上模型是树模型，而树模型是不适合做在线学习的，需要转换成gbdt+lr这样的参数模型。
+DNN的预测相比online learning，在流程上就是少了pora那一个环节。离线使用feature训练好一个模型，线上实时抽取出feature并做出预测。这里主要就是对feature的抽取，除了引入传统的统计类特征之外，还使用了embeding特征。
+\par 目前下拉推荐在引导用户精准搜素，特别是个性化方面还有很大潜力，随着计算硬件和学术界的发展，争取做到线上能承载更精细的feature、更强的模型容量，真正做到千人千面，为每个人订制的下拉推荐。
+
+
+\section{魔盒}
+\subsection{背景介绍}
+在手淘的导购路径中主要存在以下几种产品形态：底纹，激活页，下拉推荐，魔盒，导航和锦囊。其中魔盒将用户购物需求细化并前置到下拉中，能够缩短用户的选购路径；不仅如此，目前手淘的搜索query呈现高频集中出现的情况，这样并不利于搜索query的丰富性，魔盒能够发现新词，从而提升query整体丰富性特别是中低频query的丰富度，从而起到给平台引入更多新鲜优质query的作用。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/mh0.png"}
+	\caption{魔盒的产品 形态}
+	\label{fig:mh0}
+\end{figure}
+每条下拉对应的3个魔盒的顺序排列是一个典型的排序问题，手淘的魔盒主要采用的机器学习算法为LambdaMART。引用相比于GBDT主要的区别在于loss function不在是可微函数squareloss或者是单纯的logloss， 它采用pairwise loss （join pairwise logloss）作为基本的损失函数，进一步加入可不导的评价指标（e.g. NDCG，ERR etc）在boosting的梯度中来直接优化我们感兴趣的评价指标
+
+\subsection{技术}
+魔盒的总体流程为：离线训练LambdaMART,样本来源为离线计算和在线计算；在线进行排序，然后输出魔盒
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/mh1.png"}
+	\caption{魔盒总体流程}
+	\label{fig:mh1}
+\end{figure}
+
+\subsubsection{魔盒的词源}
+魔盒的产品形态天然与前置的query相关连，为了保证魔盒词与前置query的相关性，从搜索日志中获取query下有点击行为的宝贝，再对宝贝title进行中粒度分词，对分词的tag类型进行规则过滤去重后，作为每个query对应的魔盒词源。而由于商品集合太庞大，考虑到title精选和计算量，商品集合限制在精品宝贝集合。
+\subsubsection{魔盒的海选}
+每个query对应的魔盒集合是很庞大的，在魔盒使用排序模型之前，需要都给模型精选的候选集合，这部分候选集合是按照规则版的打分机制得来的。参与规则打分主要使用的维度是 （1）query+魔盒的静态分； （2）query+魔盒的uv转化率； （3）query+魔盒的搜索结果数
+\subsubsection{魔盒的模型训练}
+使用LambdaMART模型，魔盒的点击为正样本，其他相同前置query的魔盒为负样本。样本特征包括：  （1）用户个性化特征。 （2）魔盒自身的特征。 （3）来自商品的query＋魔盒特征(举个例子：搜索query=连衣裙，带来 tital包含“红色”商品点击为1000次，那么自商品的连衣裙＋红色的ipv=1000）。 （4) 魔盒单一维度特征，与前置query无关。 （5）当前query+魔盒与其它query+魔盒之间的关系特征
+\subsection{效果及展望}
+目前魔盒在算法方面依然是与下拉推荐互相独立的，未来，一方面需要考虑魔盒和下拉联合排序，另一方面会在魔盒进行强个性化的探索。
+内容方面，未来魔盒可能不仅仅限制于词，也可以是商品，也可以是图片，也可以是有意思的标签。
+
+\section{底纹推荐}
+\subsection{背景介绍}
+底纹通俗来讲就是为手淘首页搜索框提供默认展示词，其产品形态如下图1所示。作为首页唯一的query推荐产品，底纹在帮助用户唤起中断需求，降低输入成本方面有着不可或缺的意义。如何才能高效精准地理解用户需求，为用户推荐其感兴趣的query，一直是我们不断努力的优化方向，一般我们主要用使用uv和引导成交金额来衡量优化效果
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dw0.png"}
+	\caption{底纹产品形态图}
+	\label{fig:dw0}
+\end{figure}
+手淘的底纹刚开始是由一套纯运营配置流程来维护的，所有用户看到的默认展示词都是一样的，毫无疑问这样的体验效果和推荐效率都不太好。
+\par 目前手淘底纹的推荐逻辑已经进行过多次优化迭代，从原来的千人一面到现在的千人千面，大致可以分为基于统计的个性化初探和基于机器学习的实时个性化推荐两个阶段。
+
+\subsection{基于统计的个性化初探}	
+手淘的统计版本个性化推荐主要是利用了集体智慧的思想在大量的人群行为和数据中收集用户的偏好信息，这种偏好信息既可以来源于用户的搜索行为，也可以来源于用户的点击行为，不同的推荐来源在这里我们称为不同的trigger类型。
+\par 基于搜索记录的一种简单推荐方法是根据用户历史搜索记录获取其类目偏好信息，然后把偏好类目下的热门query推荐给用户，这种方法的优点是简单易于实现，每个用户由于其历史搜索行为不同因而看到的展示query也不一样，可以作为个性化推荐的一个初始版本，缺点是能覆盖到的用户量有限，而且基于偏好类目的推荐粒度还是比较粗糙的。
+基于点击行为的一种推荐方法是将一定时间段内的搜索展现、点击、成交日志进行聚合分析，利用集体智慧获取点击宝贝和搜索记录的关联关系，最终将大量搜索后的展现、点击、成交行为聚合到宝贝上，当然这里有个基本假设是query搜索后发生点击的宝贝item与query本身是强相关的，这个假设在搜索相关性发展到现阶段是完全成立的。图2是以点击行为为trigger的一个在线推荐框架图，在Offline阶段的Query->item的点击、成交pair统计，以及在item维度聚合后对点击、成交的一个线性加权来计算每个query的静态分，就是用了集体智慧的思想。在线推荐阶段主要是请求实时数据获取用户的实时点击和购买行为，用实时点击宝贝当做推荐的trigger，把item关联的query推荐给用户，下面我们称这种基于点击行为的推荐类型为i2q推荐。这种推荐方法的优点在于在线召回和排序逻辑简单，点击率提升明显，缺点是trigger选择逻辑比较简单，候选query集合小，召回和排序优化空间大。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dw1.png"}
+	\caption{基于统计的i2q个性化推荐框架}
+	\label{fig:dw1}
+\end{figure}
+\subsection{基于GBDT的实时个性化推荐}
+针对上面统计版本i2q推荐方法的缺点，我们在手淘上尝试将机器学习方法引入到推荐的在线排序阶段，优化的主要目标是在Recall（召回）阶段扩充query候选集，在Rank（排序）阶段优化在线排序。图3给出了模型版i2q推荐的整体框架图。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dw2.png"}
+	\caption{基于统计的i2q个性化推荐框架}
+	\label{fig:dw2}
+\end{figure}
+
+\subsection{基于lstm的召回}
+I2q扩招回的一个基准版本是拉长用户点击行为的选择时间窗口，从原来的单个点击trigger改为多个trigger。同时离线query候选集也加入了一些自动生成的query，主要思路是根据用户发生的行为序列，利用seq2seq模型生成一些新的query。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.9\linewidth]{"fig/dw3.png"}
+	\caption{query生成示意图}
+	\label{fig:dw3}
+\end{figure}
+
+\subsubsection{模型简介}
+如图4所示，encoder是用户状态向量(Ui)的sequence，decoder是query的词(wi)的sequence。U向量主要关注商品内容(标题等)，商品上发生的行为(距离时间，点击，停留时间，收藏，加购，购买等)，以及用户的特征(性别，年龄，购买力，关键词偏好等)和用户输入的query等信息。
+词序列是decoder阶段的query词序列。query的有效性用query搜索之后发生的点击/收藏/加购等行为来衡量，这个指标会影响其所属样本在整个样本集中的权重。
+\paragraph{训练}
+训练数据主要包含以下两个部分。A：用户的全网行为数据；B：用户的底纹使用数据(也就是decoder的query限制是用户使用了底纹)。
+训练过程分为两个阶段：第一个阶段用数据极为丰富的A进行预训练，第二个阶段在第一个阶段的基础上用B进行再训练，使之更符合底纹的数据分布。
+\paragraph{预测}
+使用Beam Search来选取top-K query加入到底纹的候选集中。
+\paragraph{评估}
+离线评价指标主要通过BLEU来评估。在BLEU的基础上，我们增加了一个更加直观的召回率指标：用生成的topN query和底纹真实的topM比较，假设完全匹配topM中的K个(可带权重)，定义召回率为(N,M,K/M)，如果召回率高，可以认为学到了真实数据的分布，同时新造query质量也比较好。
+
+\subsubsection{在线排序}
+在线排序阶段主要涉及到样本标定、特征选择和模型选择三个方面。
+\paragraph{样本标定}
+样本选择要根据优化目标来设定，随着优化目标的微调样本也要做相应的适配。底纹推荐的主要目标是提升使用率和引导成交金额。正样本是通过底纹引导到搜索结果页，有商品点击和引导成交的样本权重适当加大，负样本是搜索时主动输入未使用底纹的样本。
+\paragraph{特征选择}
+目前用到的特征主要包含User维度、trigger维度、query维度的单一特征和一些组合特征。
+\begin{enumerate}
+\item user维度，主要用到人口统计学特征，如用户的性别、年龄、购买力；
+\item trigger维度，主要有trigger行为和请求底纹的时间差，宝贝在类目下的购买力档位，点击、成交指标等；
+\item query维度，主要包括query的长度，分词个数，搜索结果数，搜索次数、引导成交笔数、引导成交金额、uv价值，uv成交转化率等特征；
+\item 组合维度，主要有query和user的购买力差值、性别是否一致等特征。
+\end{enumerate}
+\paragraph{模型选择}
+在模型选择方面尝试了多个版本，目前使用的基准版本是GBDT模型，主要是考虑到GBDT在特征选择、特征组合方面的优势以及它的强泛化能力，关于GBDT的一些理论介绍不属于本文重点，这里就不再赘述。
+
+
+
+
+ \begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{\protect\numberline{}{\hspace{-1.5em}参考文献}}
+\markboth{参考文献}{参考文献}
+\bibitem{1} Hao Y, Zhang Y, Liu K, et al. An End-to-End Model for Question Answering over Knowledge Base with Cross-Attention Combining Global Knowledge[J].
+\bibitem{2} Xiong C, Zhong V, Socher R. Dynamic coattention networks for question answering[J]. arXiv preprint arXiv:1611.01604, 2016.
+\end{thebibliography}
+

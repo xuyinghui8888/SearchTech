@@ -1,5 +1,5 @@
 
-\chapter{搜索工程和算法架构体系} 
+\chapter{ 系统架构 } 
 \thispagestyle{empty}
 
 \setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
@@ -10,33 +10,104 @@
 \end{tcolorbox}}
 \setlength{\fboxrule}{1pt}\setlength{\fboxsep}{4pt} 
 
-\section{工程架构} 
+
+\section{ 泛搜索框架架构图 } 
+
+对于一个完整的泛搜索框架，是一个复杂系统，
+1. 狭义层面的搜索引擎，涉及到离线的数据schema化，索引构建，召回和排序模块；
+
 
 \begin{figure}[h]
 \centering
-\includegraphics[totalheight=2.5in]{fig/searchAlgoRoadmap.png}
-\caption{工程架构图} \label{fig:gansamples}
+\includegraphics[totalheight=3.0in]{fig/20210708121500.png}
+\caption{20210708121500} \label{fig:gansamples}
 \end{figure}
 
-\section{算法架构} 
 
-大规模机器学习体系如下图所示：
-\begin{figure}[h]
-\centering
-\includegraphics[totalheight=2.5in]{fig/searchAlgoArch.png}
-\caption{大规模机器学习@淘宝搜索} \label{fig:gansamples}
-\end{figure}
+\begin{enumerate}
+   \item 1. hippo:调度系统，用于分配机器
+   \item 2. suez\_ops: 管控平台，用于启动引擎与分发任务,详细介绍见第十章
+   \item 3. suez:用于执行suez_ops分发的任务
+   \item 4. deploy express:用于分发包，索引，配置等数据
+   \item 5. build service:用于处理文档和构建索引
+   \item 6. swift：用于实时消息的传递
+   \item 7. cm2:用于服务的发布，外界可以通过cm2定位qrs与searcher
+\end{enumerate}
 
-\section{评估指标及ab系统} 
-我们平台上所关心的指标有： 
-\begin{description} 
-	\item uv转化率: $ cvr=\frac{buyuv}{uv} $
-	\item uv点击率: $ ctr=\frac{ipvuv}{uv} $
-	\item 客单价: 
-	\item GMV:
-\end{description}
+ha3引擎通常是由一组Qrs和searcher组件，ranker组件，summary组件组成的：
+\begin{enumerate}
+\item. Qrs的作用是：对输入的查询做解析和校验，通过后把查询转发给searcher，收集合并searcher返回的结果，最后对结果进行一些加工并返回给用户；
+\item. searcher组件：基本对应的是文档的召回任务。
+\item. ranker组件：打分和排序服务或者。
+\item. summary组件：文档的摘要服务。
+\end{enumerate}
 
-\section{工作流和数据流} 
+三个数据流：
+1. 查询流：
+	\begin{enumerate}
+    \item a. 当用户提交一个查询时，通常会经过sp业务层。sp层主要处理业务相关的逻辑，
+       例如访问QP对查询进行扩展纠错，访问igraph获取相关的个性化信息等。
+       经sp层处理后查询已经被处理成引擎所认识的查询串，
+    \item. SP从cm2中拿一台qrs机器，把查询转发到QRS
+    \item. Qrs根据内部的cm2信息，把查询转发到相应的searcher
+  	\item. searcher根据查询，返回结果给qrs
+  	\item. qrs 合并多个searcher的结果返回给sp，再由sp返回给用户
+  	\end{enumerate}
+
+2. 控制流
+	这里的控制流指包含：a.服务的启停 b.索引和配置的分发与切换 
+	\begin{enumerate}
+    a. 用户在suez_ops页面上配置HA引擎包，cm2，索引等信息后，点击启动会向suez admin发一个执行目标
+    b. suez_admin会对这个目标进行分解，产生一个carbon执行的目标。
+    c. carbon根据目标向hippo申请机器并在这些机器上安装ha包和启动suez worker。
+       HA的Qrs与searcher其实一种 suez worker的实现。
+    d. 进程启后QRS与searcher就会加载配置与索引，
+    e. 服务ready后suze admin会把这些服务发布到指定的cm2结点下。
+    \end{enumerate}
+
+3. 数据流
+	searcher需要的数据通常索引目录或实时文档，这个索引通常由build service定期生成，实时文档则通过swift获取。
+	suez_ops会定期向build service获取新产出索引并把新索引的目标发送给searcher。当searcher收到目标后会向deploy express发起下载索引标，下载完后会加载新的索引。
+	build service是一个文档处理与索引构建服务。当dump中心产出一份新数据时，其就会触发一次全量build。dump通常会把全量数据写到hdfs文件上，把实时数据写入到swift上。
+	build service构建索引分为3步：         
+	1. process文档，文档的来源可以是文件或swift上的消息，processor处理后会把处理结果写中到swift中
+    2. build索引，builder从swift获取已经处理的文档并对这些文档构建小索引
+    3. merge索引，merger把builder产出的小索引合成一个大的索引
+
+build service除了构建全量索引后，还会定期的构建增量索引。searcher的实时数据则直接读取processor写到swift上数据：
+
+
+	\begin{figure}[h]
+	\centering
+	\includegraphics[totalheight=3.0in]{fig/20210708122651.png}
+	\caption{20210708122651} \label{fig:gansamples}
+	\end{figure}
+
+
+	Suez Turing 框架介绍
+
+
+	\begin{figure}[h]
+	\centering
+	\includegraphics[totalheight=3.0in]{fig/20210708154912.png}
+	\caption{20210708154912} \label{fig:gansamples}
+	\end{figure}
+
+
+	suez turing 中把suez的worker抽象成了一个local的执行引擎，把检索流程抽象成图的执行，其中图中节点是各种算子，边是数据，远程worker的调用抽象成远程算子图，目前suez turing的worker只支持tensorflow的图执行，未来可能会加入更多的图执行引擎；各个应用整体流程用一张全图来描述，在suez ops那边图进行切分，然后分配子图到各个worker进行加载，其带来的好处是，采用算子级别的复用，减少相似算子的重复开发，通过图画的架构，达到流程的灵活定制；算子执行的并行化，异步化可以降低latency，统一的插件机制为算法开发提供统一的接口；codegen等技术的应用可让更多的业务受益；小业务的全图local执行可减少服务的调用；
+
+	
+
+	\begin{figure}[h]
+	\centering
+	\includegraphics[totalheight=3.0in]{fig/20210708155805.png}
+	\caption{20210708155805} \label{fig:gansamples}
+	\end{figure}
+
+
+	suze turing的服务接口
+
+	采用arpc的rpc框架，其pb的定义接口如下，主要传输的数据是tensor
 
 
 

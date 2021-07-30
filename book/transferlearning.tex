@@ -1,5 +1,8 @@
 
 \chapter{迁移学习}
+
+\graphicspath{ {FIG/} }
+
 \thispagestyle{empty}
 
 \setlength{\fboxrule}{0pt}\setlength{\fboxsep}{0cm}
@@ -12,8 +15,225 @@
 
 
 \section{营销场景下的深度迁移学习应用} 
-	@一尘，@海凯 
 
+\subsection{为什么要迁移学习}
+
+用户通过手机进入淘宝APP首页，上面有非常多的应用诸如聚划算，淘抢购，特价，金币，清仓等独立的推荐场景，这些场景我们都称作营销场景。
+这些场景和搜索场景不太一样，用户不用输入关键词，就能获得个性化推荐结果。营销场景的商品每天都在变化，有些场景允许报名商品能持续投放
+几天，有的场景可能就一个小时后就下线了（比如淘抢购）。这些商品上在单一渠道上累积的行为数据差异比较大，对于新上来的商品需要面临冷启动问题。
+尤其是小类目下这类情况特别突出。在这些小类目下，由于流量的不均匀，标注样本非常难获取。
+
+另外一方面，我们在大的渠道（搜索）积累了非常多的用户画像，商品的profile等信息，这些信息应该能非常有效的应用到上面的小场景中，提升目前的
+个性化推荐的精准度。
+这些都是我们使用迁移学习的初衷。 
+
+从业务需求上来讲，应用迁移学习是非常自然的，尤其在聚划算这个大的平台上，运营和产品会不定期的推出一些新的更小的场景，来丰富产品形态以及
+满足消费者更加多样化的需求，这些小场景通常在推出的时候获得的流量是很小的，而且商品量的集合也不大，所以利用大场景的用户行为数据来做
+个性化推荐是首选。
+
+此外，Andrew Ng（下图） 指出，迁移学习将会是机器学习奔向下一步成功的发动机，同时他指出迁移学习在工业界的成功应用也会越来越多。
+
+\includegraphics[scale=0.5]{TL_NG}
+
+所以无论是从我们目前服务的业务需求出发还是业界的流行趋势，迁移学习掀起下一阵机器学习浪潮应该是不远的将来的事情。
+	
+\subsection{什么是迁移学习}
+离开领域(domain)谈迁移学习是没有什么意义的，在AI大行其道的今天，对于单一领域(domain)下的学习任务（无论输入是图片，句子），只要有足够
+的标注数据，我们都非常擅长完成这类任务。难的是我们面临一个新的domain, 而且这个domain 没有多少标注数据，我们如何利用前面熟悉的domain
+的模型或者数据来改善当前domain的学习任务。这个就是迁移学习的能力了。在正式定义迁移学习之前，我们有必要给出一些基本的符号和定义。
+
+
+
+\subsubsection{符号和定义}
+迁移学习里面有2个比较重要的概念，domain(领域) 和 task(任务). 领域（D）通常包括一个feature space $\chi$ \text{和 feature space 之上的边缘概率分布} P(X)\text{，
+其中} $X = {x_1,...,x_n} \in \chi$ \text{.}
+
+给定一个domain, D = \{$\chi,P(X)$\}, 任务T包含一个label space Y 和定义在Y上的条件概率P(Y|X), 这个条件概率分布通常从训练样本中学习出来。
+
+有了上面的定义，我们可以简单的定义迁移学习如下: 给定一个source domain $D_S$ ,一个对应的source task  $T_S$ , 
+以及一个target domain  $D_T$ 和 target task  $T_T$ , 迁移学习的目标是充分利用  $D_S$  和  $T_S$ \newline
+ 的信息来学习在target domain 上的条件概率 {P(Y|X)} , 通常 $D_S \neq D_T$ 或者 $T_S \neq T_T$.
+
+为了便于下面对迁移学习的阐述，我们列出下面的的符号列表：
+
+
+
+\subsection{迁移学习的方法}
+按照前面对迁移学习的正式定义，迁移学习可以分成几大类。如果 $X_S \neq X_T$ 也就是source domain 和 target domain 的样本空间不一样，
+
+那么称作这类迁移学习是异构的迁移学习，反之我们称为同构迁移学习。 通常而言，我们面对的场景在样本上的分布都是有差异的，比如在淘宝这个大环境当中， 
+搜索场景和聚划算（淘抢购）等营销场景在样本上的分布无论是用户行为在时间上的差异还是商品在不同时间段上的表现都不一样。 
+
+下面我们重点介绍几个我们尝试的几个经典的迁移学习方法，一个是基于实例的迁移学习，还有一个是基于参数的迁移学习.
+
+
+\subsubsection{基于实例的迁移学习}
+前面提到过，当我们面临一个新的domain的时候，通常都会面临标注样本比较少的境地，然后手工标注样本的成本又非常之高。典型的比如某个行业或者频道
+
+要上线一个新的场景，通常这类场景不大可能获得一个比较好的流量入口，而且商品都是运营BD 商家通过招商报名进来，商品不会太多，然而这些商品
+
+在大的场景当中（搜索，猜你喜欢）都有丰富的用户行为，这些大的场景的行为数据如何用到新的场景当中，是我们这小节要讨论的重点。
+
+我们定义$X_s$ 为 source domain 的 instance space, 定义 $X_d$ 为 target domain 的 instance space,
+
+\text{定义 Y = \{0, 1\} 为分类的labels. 在基于实例的迁移学习当中，我们的目标是充分利用 }
+
+\text{source domain 和 target domain 2者的标注样本合集来优化分类器的性能.}
+
+同时， 定义训练数据集合 T = \{X x Y\}, 我们将T 划分 成  $T_s$ 和 $T_d$ ,其中 $T_d = \{(x_i^d,y)\}$,
+
+$T_s = \{(x_j^s,y)\}$.
+
+有了上面的定义，我们现在来讨论如何基于实例来做迁移学习,比较著名的有Transfer AdaBoost 方法。这个方法其实是把AdaBoost的思想用到了
+
+迁移学习领域。Adboost其实是一个学习框架，通过调整训练样本的权重来提升弱分类器的性能, 同样，AdaBoost 也假设训练样本和测试样本的分布
+
+是一致的。在TrAdaboost 方法中，对于target domain 里面分类错误的样本，会加大其权重；对于source domain 中分类错误的样本，会降低其权重。
+
+这个方法思路比较简单，而且容易实现。这个算法的详细内容如下：
+
+\noindent\rule[0.25\baselineskip]{\textwidth}{1pt}
+TrAdaBoost 算法 
+
+\noindent\rule[0.25\baselineskip]{\textwidth}{1pt}
+
+输入: $T_d, T_s$, 一个基分类器 L, 以及 最大迭代次数 N. 
+
+初始化:  {先对每个训练样本赋予一个权重 $W^1 = (w_1^1,...,w_{n+m}^1)$}
+
+For t = 1,...,N
+\begin{enumerate}
+\item 设置 {$p^t = w^t/(\sum_{i=1}^{n+m} w_i^t)$}
+
+\item 调用基分类器 L, 得到映射：{$h_t : X->Y$}
+
+\item 计算 $h_t$ 在 $T_s$ 上的分类错误:  \newline
+
+$\epsilon_t = \sum_{i=n+1}^{n+m} \frac{w_i^t |h_t(x_i) - c(x_i)|}{\sum_{i=n+1}^{n+m} w_i^t}$
+
+\item 设置 ${\beta^t = \frac{\epsilon_t}{1 - \epsilon_t}} \text{以及} {\beta = \frac{1}{1+\sqrt{2lnn/N}}}$
+
+\item 更新样本权重向量
+
+{
+
+$w_i^{t+1}$ = 
+\begin{equation}
+\begin{cases}
+w_i^t\beta^{|h_t(x_i) - c(x_i)|}, 1 \leq i \leq n\\
+w_i^t\beta_t^{-|h_t(x_i) - c(x_i)|}, n+1 \leq i \leq n+m
+\end{cases}
+\end{equation}
+
+}
+\end{enumerate}
+
+输出最终分类器:
+
+{
+
+$h_f(x)$ = 
+\begin{equation}
+\begin{cases}
+1, \prod_{t=\lceil N/2\rceil}^{N} {\beta}_t^{-h_t(x)} \geq \prod_{t=\lceil N/2\rceil}^{N} {\beta}_t^{-\frac{1}{2}} \\
+0, otherwise
+\end{cases}
+\end{equation}
+
+}
+
+\noindent\rule[0.25\baselineskip]{\textwidth}{1pt}
+
+
+
+\subsubsection{基于参数(特征)的迁移学习}
+通常基于实例的迁移学习，基本的思路都是调整source domain 的 权重，使得source domain 和 target domain 的 样本的边缘概率分布尽可能
+
+保持一致。当source domain 和 target domain 的 边缘概率分布完全一样的时候，基于instance的迁移学习的效果应该会很好。但是在实际情况中
+
+这个条件经常不会满足。所以基于特征转化(feature transformation)或者参数的迁移学习 就会派上用场。通常这类 迁移学习的思路要么把source
+
+domain 的feature space 和 target domain 的feature space 映射到一个common space, 然后基于common space 加上 fine tuning 应用
+
+到 target domain 上，或者 单向的把source domain的feature space 映射到 target feature space，然后再在target feature space 上
+
+再进行学习。 在训练方式上，通常用DNN来做映射，训练方法基于普通的BP算法即可。在这个小节，我们简单介绍 2个方法。
+
+我们要解决的是online LTR(learning to rank)的任务，这个任务是任何成熟的搜索或者推荐系统在ranking的阶段都应该做的事情，online LTR 会
+
+扑捉到线上实时数据的分布的变化，学习出每个基础特征的权重，影响排序。我们在搜索和聚划算都应用了online LTR. 在2个场景上都取得了一定的效果，
+
+由于任务在两个场景上的相似性，我们希望用搜索大场景上的learned model 来 改善 小场景上的 learned model. 
+
+在每个场景上我们用DNN 来fit online data, 同时两个network共享一些layers. 其网络结构设计如下：
+
+
+\includegraphics[scale=0.5]{TL_share.png}
+
+图中只画了一个共享层，实时当中，我们有尝试2-3层，效果上2层最好，当share layers的数目增加的时候，效果并没有明显改进。此外，由于我们都是在线
+
+训练的，为了训练的速度，我们也没有用非常多的share layers. 训练的方式上，两个network都是独立训练的，因为数据都是以streaming 模式一条一条
+
+过来的，再结合营销线业务的特点，通常10点左右，营销线会有一个流量高峰，这个时候如果target domain 的model 还受到 source domain 的干扰很大
+
+的话，会很影响效果。这个时候可以采取连续batch 训练的策略，也就是在这段时间内，连续训练target domain的network, 直到模型比较稳定，才加入source domain 的训练。
+
+
+
+我们简单分析下前面的网络结构。 这个网络结构训练的是2个独立的子任务，每个子任务接受一个用户状态的输入，然后通过全连接进行投影，在输出的时候和
+商品向量进行点乘然后经过一个logistic变化，再输入到交叉熵(loss)当中，所以本质熵来看，从LTR的任务来看，还是一个线性模型。一个改进思路
+用user state vetor 和 item vector 交叉做一些非线性变换，改进后的网络结构如下：
+
+\includegraphics[scale=0.5]{TL_MLP.png}
+
+下面的user vector 和 item vector 在2个子网络上都是共享的，这个网络结构充分利用了user vector 和 item vector 的交叉和连接等非线性操作，
+在实际情况中，AUC 从0.76提升到0.8, 线上效果也提升比较显著。
+
+
+在训练方式上，由于我们是做online training 的， 2个子网络的训练都是独立的，不会有相互的影响。即使我们可以控制先训练target domain到某个
+稍微稳定的状态，在一起训练两个domain, 实际上，这种训练还是有比较大的缺陷，主要问题是，无法将source domain 对 target domain 的负面
+影响给消除。 那么如何消除这种不利影响呢？可以在训练方式上进行改进。一个直观的想法是，我们加入一个额外的 classifier, 用来区分当前的样本
+来自source domain 还是 target domain, 原先的训练方式还是不变。这种训练方式会引入2个目标，一个目标是最小化模型在source domain上
+的loss, 另外一个目标是最大化domain classifier 在 domain instance 分类上的loss. 网络训练到domain classifier 无法 区分当前
+样本来自source domain 还是 target domain的时候，说明已经达到最优。这种类似于“对抗训练”的方式可以用下图表示。
+
+\includegraphics[scale=0.5]{TL_DA.png}
+
+我们简单理解下训练流程：其中颜色标绿的部分可以看作是deep feature extract, 上面蓝色的部分的部分是target domain 的 label classifier.
+这两个部分一起构成标准的前向网络。标红色的是domain classifier, 这个domain classifer 和 上面的target domain 的label classifier 是
+共享feature extract layers的，训练的时候，用正常的BP算法就可以，但是domain classifier 是 通过所谓的Gradient reversal layer 将梯度
+的负值进行反向传播。
+
+具体来说，我们用$G_f$ 来表示绿色部分，$G_f$ 的作用是将输入input映射到一个D维向量f,
+
+参数空间表示为 $\theta_f$ , 那么 $f= G_f(x;\theta_f)$. 同理，我们用($G_y$)来表示图中蓝色的部分，
+
+参数空间$\theta_y$, 红色的部分我们用($G_d$)来表示，参数空间是($\theta_d$).
+
+在训练的时候,我们是要最小化$G_f$,$G_y$在training set上的loss,但同时要最大化$G_d$的loss.
+
+也就是说,这个网络里面的参数$\theta_f$在同时最小化$G_y$的loss的同时,还要使得$G_d$ 的loss最大.
+
+可以定义loss function 如下：
+
+$E(\theta_f, \theta_y, \theta_d) = \sum_{i=1...N}{L_y(G_y(G_f(x_i;\theta_f);\theta_y),y_i)} - \lambda\sum_{i=1...N}{L_d(G_d(G_f(x_i;\theta_f);\theta_d),y_i)} = \sum_{i=1...N}{L_y^i(\theta_f,\theta_y)} - \lambda\sum_{i=1...N}{L_d^i(\theta_f,\theta_d)}$
+
+
+结合前面的Gradient reversal layer， 参数更新方式 为：
+
+
+
+$\theta_f \leftarrow \theta_f - \mu(\frac{\partial L_y^i}{\partial \theta_f} - \frac{\partial L_y^d}{\partial \theta_f})$
+
+$\theta_y \leftarrow \theta_y - \mu\frac{\partial L_y^i}{\partial \theta_y}$
+
+$\theta_d \leftarrow \theta_d - \mu\frac{\partial L_d^i}{\partial \theta_d}$
+
+
+
+\subsection{迁移学习在营销场景下的应用和效果}
+
+\subsection{结论和展望}
 
 \begin{thebibliography}{99}
 \addcontentsline{toc}{chapter}{\protect\numberline{}{\hspace{-1.5em}参考文献}}

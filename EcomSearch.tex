@@ -1,43 +1,51 @@
 \documentclass[12pt,a4paper,openany,twoside,cap]{ctexbook}
 \input{setup/package.tex}   %引用宏包所在位置
 \input{setup/format.tex}    %格式所在位置
+\usepackage{algorithm}  
+\usepackage{algorithmic}  
 \begin{document}
 \pagenumbering{Roman}    %Roman字体书写页码
 %------------------------------封面等-----------------------
 \include{preface/cover}               %封面
 \include{preface/intro}               %简介
-%\include{preface/intro2}             %序
+%\include{preface/intro2}              %序
+\include{preface/symbol}              %符号
 %\include{preface/preface2}           %二版前言
 %\include{preface/preface}            %前言
 %\include{preface/c_abstract}         %中文摘要
 %\include{preface/e_abstract}         %英文摘要
 %-------------------------------------目录部分--------------
 \setcounter{page}{1}   %重新开始页码
+
+\setcounter{secnumdepth}{4} % 编号的深度，4 表示到 paragraph 一级，默认为 2
+\setcounter{tocdepth}{4} % 目录中的深度
 \renewcommand\contentsname{目\qquad 录}
 %-------------------下面善三行去掉了目录首页页码----------------
 \makeatletter
 \let\ps@plain\ps@empty
 \makeatother
+
+
 %----------------------------------------------------------
-\tableofcontents                                    %目录
+\tableofcontents                %目录
 %\addtocontents{toc}{\protect\begin{multicols}{2}}  %目录分两栏开始
 \mainmatter    %前言和目录页码结束，正文重新开始设置页码
 %-----------------------------------------正文开始-----------
 \include{book/chap1}       		%第一章  序言
-\include{book/chap11}      		%第二章  业务挑战
-\include{book/chap2}       		%第二章  工程算法架构
-\include{book/chap3}       		%第三章  搜索词
-\include{book/chap13}      		%第四章  商品理解模型
-\include{book/userprof}    		%第五章  用户理解模型
+\include{book/chap2}       		%第二章  系统架构
+\include{book/chap3}       		%第三章  搜索关键词
+\include{book/chap13}      		%第四章  排序算法
 \include{book/chap4}       		%第六章  个性化搜索
-\include{book/chap5}       		%第七章  实时计算
 \include{book/chap10}      		%第八章  智能决策系统
-\include{book/chap6}       		%第九章  消费者权益智能分发核心技术
+\include{book/chap6}       		%第九章  搜索与商业
 \include{book/transferlearning} %第十章  迁移学习
-\include{book/gan} 				%第11章  对抗学习
-\include{book/chap12}      		%第12章  反作弊技术
-\include{book/chap8}       		%第13章  融入商业策略的流量优化探索
-\include{book/chap9}       		%第14章  新技术视角下的搜索智能化思考
+\include{book/gan} 				%第11章   对抗学习
+\include{book/chap12}      		%第12章   反作弊技术
+\include{book/chap8}       		%第13章   融入商业策略的流量优化探索
+\include{book/voicesearch}       %导购产品
+\include{book/chap9}       %第14章  其他
+
+%\addtocounter{chapter}{7}
 %-----------------------------------------正文结束------
 \include{reference/references}  %参考文献部分
 \clearpage
